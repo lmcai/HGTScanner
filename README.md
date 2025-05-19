@@ -19,7 +19,7 @@
 
 What HGTScanner **CAN** do:
 
-	- Identify the genomic location and donor lineage (to family and genus level) of HGT from an unknown green plant mitochondrion to a parasitic plant mitochondrion.
+- Identify the genomic location and donor lineage (to family and genus level) of HGT from an unknown green plant mitochondrion to a parasitic plant mitochondrion.
  
  	- Identify the genomic location and donor lineage of HGT from an unknown fungus mitochondrion to a mycoheterotrophic plant mitochondrion.
   
@@ -27,7 +27,9 @@ What HGTScanner **CAN** do:
    
  	- Identify the genomic location, donor lineage (to genus level) of mitochondrial plastid DNAs in a group of plant species. No prior knowledge of the plastid DNA donor is known.
 
-What is **very challenging** and discoraged:
+What is **very challenging** and discoraged use of HGTScanner:
+	- Make claims regarding donor lineage at the species level
+ 	- 
 
 ## I. Prerequisites and installation
 
