@@ -1,6 +1,6 @@
 # HGTScanner		<img src="/images/logo.png" width="100" height="100">
 
-**What is HGTScanner**: HGTScanner is a python package to identify the genomic location and evolutionary history of horizontal gene transfers in bacteria-like organellar genomes
+**What is HGTScanner**: HGTScanner is a python package to identify the genomic location and evolutionary history of horizontal gene transfers (HGT) in bacteria-like organellar genomes
 
 **License**: MIT License
 
@@ -19,15 +19,21 @@
 
 What HGTScanner **CAN** do:
 
-	- Identify the genomic location and donor lineage (to family and genus level) of HGT from an unknown green plant mitochondrion to a parasitic plant mitochondrion.
- 
- 	- Identify the genomic location and donor lineage of HGT from an unknown fungus mitochondrion to a mycoheterotrophic plant mitochondrion.
-  
-  	- Identify ancient, shared HGT among closely related HGT receiver species using phylogeny.
-   
- 	- Identify the genomic location, donor lineage (to genus level) of mitochondrial plastid DNAs in a group of plant species. No prior knowledge of the plastid DNA donor is known.
+- Identify the genomic location and donor lineage (to family and genus level) of HGT from an **unknown** green plant mitochondrion to a parasitic plant mitochondrion, in both gene and **intergenic** regions.
 
-What is **very challenging** and discoraged:
+- Identify HGT between two lineages known to engage in HGT activities.
+ 
+- Identify the genomic location and donor lineage of HGT from an unknown fungus mitochondrion to a mycoheterotrophic plant mitochondrion.
+  
+- Identify ancient, **shared** HGT among closely related HGT receiver species using phylogeny.
+   
+- Identify the genomic location, donor lineage (to genus level) of mitochondrial **plastid** DNAs in a group of plant species. No prior knowledge of the plastid DNA donor is known.
+
+What is **very challenging** and discoraged use of HGTScanner:
+
+- Make claims regarding donor lineage at the species level
+
+- 
 
 ## I. Prerequisites and installation
 
