@@ -41,5 +41,34 @@ What is **very challenging** and discoraged use of HGTScanner:
 
 ## I. Prerequisites and installation
 
-To process large datasets (>20 sp), high performance cluster is recommended. Mac and PC may suffer from insufficient memory during the assembly, alignment, or phylogenetic reconstruction. If you have difficulties installing PhyloHerb, please contact Liming Cai (lmcai@utexas.edu) or open an [Issue](https://github.com/lmcai/PhyloHerb/issues).
+**Installation via conda**
 
+Create a conda environment under Python 3 and activate the environment
+```
+#install blast, biopython, bowtie2, spades, samtools, pandas, and ete3
+conda install -c bioconda blast
+conda install -c conda-forge biopython
+conda install -c etetoolkit ete3
+conda install -c bioconda bowtie2
+conda install -c bioconda spades
+conda install -c bioconda samtools
+#please make sure panads is <2.0
+conda install pandas=1.5.3
+```
+To install HGTScanner, simply download it use `git`:
+```
+git clone https://github.com/lmcai/HGTScanner.git
+```
+Or from the source package:
+```
+#for v1.1.2
+wget https://github.com/lmcai/PhyloHerb/archive/refs/tags/phyloherb_v1.1.2.tar.gz
+tar xzvf phyloherb_v1.1.2.tar.gz
+```
+
+To update your local version for any future releases, `cd` into the `PhyloHerb` directory then type
+```
+git fetch --prune origin
+git reset --hard origin
+git clean -f -d
+```
