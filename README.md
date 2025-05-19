@@ -21,11 +21,9 @@
 
 What HGTScanner can do :smiley: :
 
-- Identify the genomic location and donor lineage (to family and genus level) of HGT from an **unknown** green plant mitochondrion to a parasitic plant mitochondrion, in both gene and **intergenic** regions.
+- Identify the genomic location and donor lineage (to family and genus level) of HGT from an **known or unknown** green plant mitochondrion to a parasitic plant mitochondrion, in both gene and **intergenic** regions.
  
 - Identify the genomic location and donor lineage of HGT from an unknown fungus mitochondrion to a mycoheterotrophic plant mitochondrion.
-
-- Identify the **direction** of HGT between two lineages known to engage in HGT activities.
 
 - Identify ancient, **shared** HGT among closely related HGT receiver species using phylogeny.
    
