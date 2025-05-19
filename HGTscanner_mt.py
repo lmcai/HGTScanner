@@ -1,3 +1,16 @@
+import sys
+ascii_art = r"""
+  _  _  ___ _____ ___                           
+ | || |/ __|_   _/ __|__ __ _ _ _  _ _  ___ _ _ 
+ | __ | (_ | | | \__ / _/ _` | ' \| ' \/ -_| '_|
+ |_||_|\___| |_| |___\__\__,_|_||_|_||_\___|_|  
+                                                
+"""
+print(ascii_art)
+print('############################################################\n\
+HGTScanner v1.0\n\
+A Python tool for detecting horizontal gene transfer\n')
+
 from Bio import SeqIO
 import os,argparse
 import datetime
@@ -7,7 +20,7 @@ import pybedtools
 from numpy import median
 from statistics import mode
 
-parser = argparse.ArgumentParser(description='HGTscanner_mt is a utility wrappepr to identify HGT blocks in organellar (mostly mitochondrial) genomes.')
+parser = argparse.ArgumentParser(description='HGTscanner is a tool to identify HGT blocks in organellar (mostly mitochondrial) genomes.')
 parser.add_argument('-q', metavar='query', help='fasta file of the target mitome', required=True)
 parser.add_argument('-ref', metavar='reference', help='one fasta file containing all custom references of both close relatives and potential HGT donor. This will be combined with the NCBI Viridiplantae mito database.')
 parser.add_argument('-o', metavar='output', help='output prefix', required=True)
