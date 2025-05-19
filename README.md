@@ -19,7 +19,7 @@
 
 ## I. General guidelines for experimental design
 
-What HGTScanner **CAN** do:
+What HGTScanner can do :smiley: :
 
 - Identify the genomic location and donor lineage (to family and genus level) of HGT from an **unknown** green plant mitochondrion to a parasitic plant mitochondrion, in both gene and **intergenic** regions.
  
@@ -31,7 +31,7 @@ What HGTScanner **CAN** do:
    
 - Identify the genomic location, donor lineage (to genus level) of mitochondrial **plastid** DNAs in a group of plant species. No prior knowledge of the plastid DNA donor is known.
 
-What is **very challenging** and discoraged use of HGTScanner:
+What is very challenging and **discoraged use** of HGTScanner :scream::
 
 - Make claims regarding donor lineage at the species level
 
