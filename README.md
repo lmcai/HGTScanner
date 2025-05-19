@@ -1,4 +1,4 @@
-# HGTScanner		<img src="/images/HGTScanner_logo.png" width="80" height="80">
+# HGTScanner		<img src="/images/logo.png" width="80" height="80">
 
 **What is HGTScanner**: HGTScanner is a python package to identify the genomic location and evolutionary history of horizontal gene transfers in bacteria-like organellar genomes
 
