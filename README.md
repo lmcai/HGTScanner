@@ -33,7 +33,9 @@ What is **very challenging** and discoraged use of HGTScanner:
 
 - Make claims regarding donor lineage at the species level
 
-- 
+- Make claims of HGT between two sister lineages based on the user-defined taxon sampling
+
+- Apply HGTScanner to nuclear genomes (the primary concern is the all-by-all pairwise BLAST i not efficiently optimize for giga-base-sized genomes)
 
 ## I. Prerequisites and installation
 
