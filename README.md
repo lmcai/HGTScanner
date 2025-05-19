@@ -15,6 +15,19 @@
 
 [III. Complete tutorial for HGT detection in Aphyllon](https://github.com/lmcai/HGTScanner#iii-complete-tutorial-for-hgt-detection-in-aphyllon)
 
+## I. General guidelines for experimental design
+
+What HGTScanner **CAN** do:
+
+	- Identify the genomic location and donor lineage (to family and genus level) of HGT from an unknown green plant mitochondrion to a parasitic plant mitochondrion.
+ 
+ 	- Identify the genomic location and donor lineage of HGT from an unknown fungus mitochondrion to a mycoheterotrophic plant mitochondrion.
+  
+  	- Identify ancient, shared HGT among closely related HGT receiver species using phylogeny.
+   
+ 	- Identify the genomic location, donor lineage (to genus level) of mitochondrial plastid DNAs in a group of plant species. No prior knowledge of the plastid DNA donor is known.
+
+What is **very challenging** and discoraged:
 
 ## I. Prerequisites and installation
 
