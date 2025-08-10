@@ -29,7 +29,7 @@ Examples of what HGTScanner can do :smiley: :
    
 - Identify the genomic location, donor lineage (to genus level) of mitochondrial **plastid** DNAs in a group of plant species. No prior knowledge of the plastid DNA donor is known.
 
-What is very challenging and **discoraged use** of HGTScanner :scream::imp::
+What is very challenging and **discoraged use** of HGTScanner :imp::
 
 - Make claims regarding donor lineage at the species level
 
