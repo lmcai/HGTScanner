@@ -2,8 +2,8 @@ from Bio import SeqIO
 import pandas as pd
 
 # Input/output files
-gbff_file = "plastid.3.genomic.gbff"
-output_file = "organelle_taxonomy3.xlsx"
+gbff_file = "plastid.2.genomic.gbff"
+output_file = "organelle_taxonomy2.xlsx"
 
 # Define standard taxonomy ranks (trim if you prefer fewer)
 standard_ranks = [

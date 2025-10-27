@@ -11,26 +11,43 @@ print('############################################################\n\
 HGTScanner v1.1\n\
 A Python tool for detecting horizontal gene transfer\n')
 
-from Bio import SeqIO
-import os,argparse
-import datetime
-from ete3 import Tree
-import ete3
-import pybedtools
-from numpy import median
-from statistics import mode
-import warnings
-warnings.filterwarnings("ignore")
+try:
+    # Attempt to import all required (non-standard) modules
+    from Bio import SeqIO
+    from ete3 import Tree
+    import ete3
+    import pybedtools
+    from numpy import median
+    from statistics import mode
+    import pandas as pd
+    
+    # Import standard modules after the checks are passed
+    import os, argparse
+    import datetime
+    import warnings
+    warnings.filterwarnings("ignore")
+
+except ImportError as e:
+    # If any module is missing, print a warning to the screen and exit
+    print("------------------------------------------------------------")
+    print("ERROR: Missing Required Python Module")
+    print(f"The module '{e.name}' could not be imported.")
+    print("\nPlease ensure all required dependencies are installed.")
+    print("\nRequired modules include: biopython (Bio), ete3, pybedtools, numpy, pandas.")
+    print("------------------------------------------------------------")
+    sys.exit(1) # Exit the script with an error code
 
 
 parser = argparse.ArgumentParser(description='HGTscanner is a tool to identify HGT blocks in organellar genomes.')
 parser.add_argument('-q', metavar='query', help='fasta file of the target genome', required=True)
-parser.add_argument('-mtpt', metavar='mode', help='invoke the MTPT mode')
-parser.add_argument('-pt_ref', metavar='reference', help='fasta file containing custom plastid references of both close relatives and potential HGT donor. This will be combined with the NCBI Viridiplantae plastid database.')
-parser.add_argument('-mt_ref', metavar='reference', help='fasta file containing custom mitochondrial references of both close relatives and potential HGT donor. This will be combined with the NCBI Viridiplantae mito database.')
-parser.add_argument('-o', metavar='output', help='output prefix', required=True)
+parser.add_argument('-o', metavar='output_prefix', help='output prefix', required=True)
 parser.add_argument('-f', metavar='family', help='family of the query for HGT classification', required=True)
-parser.add_argument('-b', metavar='file', help='bed file for regions to be masked')
+parser.add_argument('-mtpt', action='store_true', help='invoke the MTPT mode')
+parser.add_argument('-pt_fix_id', metavar='id_file', help='replace the default representative 3722-sp pt db with custom-selected ids from the complete Viridiplantae plastid db.')
+parser.add_argument('-pt_add_seq', metavar='fatsa', help='fasta file containing custom plastid references of both close relatives and potential HGT donor. This will be combined with the 3722-sp pt db.')
+parser.add_argument('-pt_add_id', metavar='id_file', help='file containing ids from the complete Viridiplantae plastid db to be combined with the default 3722-sp pt db.')
+parser.add_argument('-mt_add_seq', metavar='fasta', help='fasta file containing custom mitochondrial references of both close relatives and potential HGT donor. This will be combined with the NCBI Viridiplantae mito database.')
+parser.add_argument('-b', metavar='bed_file', help='bed file for regions to be masked')
 parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
 
 ####################################
@@ -38,53 +55,79 @@ parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
 ################################
 
 args = parser.parse_args()
-#optional
+script_path = os.path.abspath(sys.argv[0])
+script_path = os.path.dirname(script_path)
+
+#set family for the focal clade
 if args.f:
 	fam = args.f
 
+def id2seq(ids,output):
+	recs=SeqIO.parse(script_path+'/database/Viridiplantae_pt_aug2025.genome.fas','fasta')
+	out=open(output,'a')
+	for rec in recs:
+		id=rec.id
+		if id.split('.')[0] in ids:d=SeqIO.write(rec,out,'fasta')
+		out.close()
+
 if args.mtpt:
 	#mtpt mode
+	#assemble the plastid dataset for MTPT
 	try:
 		sp=args.o
 		query=args.q
 		print(str(datetime.datetime.now())+'\tDetecting MTPT in '+sp+' using the query sequence '+query)
-		if args.pt_ref:
-			#add custom plastid references to database
-			pt_reference = args.pt_ref
-			print(str(datetime.datetime.now())+'\tAdd custom plastid reference '+pt_reference+' to the representative NCBI Viridiplantae plastid database')
-			S='cat '+pt_reference+' Viridiplantae_pt.fasta >'+sp+'.pt_db.fas'
-			os.system(S)
+		if args.pt_fix_id:
+			#Use custom list of pt db
+			id_list=open(args.pt_fix_id)
+			id2seq([i.strip() for i in id_list],sp+'.pt_db.fas')
+			print(str(datetime.datetime.now())+'\tUsing custom list of plastid reference: '+args.pt_fix_id)
 		else:
-			S='cp Viridiplantae_pt.fasta '+sp+'.pt_db.fas'
-			os.system(S)
-			print(str(datetime.datetime.now())+'\tNo custom plastid reference provided. Will only identify MTPT locations without make inference for HGT')
+			#build db on top of default  3722-sp pt db
+			add_seq=0
+			if args.pt_add_seq:
+				#add custom plastid sequences to database
+				pt_reference = args.pt_add_seq
+				print(str(datetime.datetime.now())+'\tAdd custom plastid fasta '+pt_reference+' in addition to the NCBI Viridiplantae plastid database')
+				S='cat '+pt_reference+' '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas >'+sp+'.pt_db.fas'
+				os.system(S)
+				add_seq=1
+			if args.pt_add_id:
+				add_seq=1
+				print(str(datetime.datetime.now())+'\tAdd custom list of plastid based on '+args.pt_add_id+' in addition to the NCBI Viridiplantae plastid database')
+				id2seq([i.strip() for i in id_list],sp+'.pt_db.fas')
+				S='cat '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas >>'+sp+'.pt_db.fas'
+			if add_seq==0:
+				print(str(datetime.datetime.now())+'\tNo custom plastid reference provided. Using default...')
+				S='cp '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas '+sp+'.pt_db.fas'
+				os.system(S)				
 	except TypeError:
 		print('############################################################\n\
 #ERROR:Insufficient arguments!\n\
 Usage:\n\
-python HGTScanner.py -mtpt -q <query sequence> -o <output prefix> [optional] -pt_ref <reference fasta>')
+python HGTScanner.py -mtpt -q <query sequence> -o <output prefix> -f <family> [optional] -e <e value> -pt_add_seq <fasta> -pt_add_id <list of id file> -pt_fix_id <list of id file>')
 	except IOError as e:print(e.errno)
 else:
-	#default mode
+	#default mode for mtHGT
 	try:
 		query=args.q
 		sp=args.o
 		print(str(datetime.datetime.now())+'\tDetecting HGT in '+sp+' using the query sequence '+query)
-		if args.mt_ref:
+		if args.mt_add_seq:
 			#add custom references to database
-			mt_reference = args.mt_ref
+			mt_reference = args.mt_add_seq
 			print(str(datetime.datetime.now())+'\tAdded custom mitochondrial reference '+mt_reference+' to the NCBI Viridiplantae mitochondrial database')
-			S='cat '+mt_reference+' Viridiplantae_mt.fasta >'+sp+'.mt_db.fas'
+			S='cat '+mt_reference+' '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas >'+sp+'.mt_db.fas'
 			os.system(S)
 		else:
-			S='cp Viridiplantae_mt.fasta '+sp+'.mt_db.fas'
+			S='cp '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas '+sp+'.mt_db.fas'
 			os.system(S)
 			print(str(datetime.datetime.now())+'\tNo custom mitochondrial reference provided. Will use the built-in Viridiplantae mitochondrial database')
 	except TypeError:
 		print('############################################################\n\
 #ERROR:Insufficient arguments!\n\
 Usage:\n\
-python HGTScanner.py -q <query sequence> -o <output prefix> [optional] -mt_ref <reference fasta> -b <bed file for masking> -f <query species family>')
+python HGTScanner.py -q <query sequence> -o <output prefix> -f <family> [optional] -mt_add_seq <reference fasta> -e <e value> -b <bed file for masking>')
 	except IOError as e:print(e.errno)
 
 	
@@ -191,6 +234,26 @@ def seq2seq_ortho_extraction(seed_file,targets_file,output_handle):
 		else:
 			pass
 			
+def filter_blast_results(bed_id, top_n=100):
+	GROUP_COL = 3
+	EVAL_COL = 7
+	data_lines = [
+		line.split('\t')
+		for bed_id, line in seq_loc.items() 
+			if str(bed_id) in map(str, bed_ids)
+	]
+	df = pd.DataFrame(data_lines)
+	df.rename(columns={GROUP_COL: 'GroupID', EVAL_COL: 'evalue'}, inplace=True)
+	df_max_per_group = df.sort_values(
+		by=['GroupID', 'evalue'], 
+		ascending=[True, True]
+	).drop_duplicates(subset=['GroupID'], keep='first')
+	df_final = df_max_per_group.sort_values(
+		by='evalue', 
+		ascending=True
+	).head(top_n)
+	filtered_bed = df_final[8].tolist()
+	return [i.strip() for i in filtered_bed]
 
 ####################################
 #III. MTPT mode
@@ -199,135 +262,137 @@ if args.mtpt:
 	#blast
 	if args.e:evalue=args.e
 	else:evalue=1e-40
+	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate MTPT')
+	#make the query sequence as the database otherwise many potential hits from the Viridiplantae get ignored by blastn if the other way around
 	S='makeblastdb -in '+query+' -out '+sp+' -dbtype nucl >/dev/null'
 	os.system(S)
-	S='blastn -task dc-megablast -query '+sp+'.pt_db.fas -db '+sp+' -outfmt 6 -evalue '+evalue+' >'+sp+'.mtpt.blast'
+	S='blastn -task dc-megablast -query '+sp+'.pt_db.fas -db '+sp+' -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
+	#print(S)
 	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#sort blast results and give each row an uniq id
-	S="awk -v OFS='\\t' '{if ($9 <= $10) print $2, $9, $10, $1, $7, $8, $3, S11, $12; else print $2, $10, $9, $1, $7, $8, $3, S11, $12}' "+sp+".mtpt.blast| sort -k1,1 -k2,2n -k4,4n | awk 'BEGIN{FS=OFS='\\t'} {print $0, NR}' > "+sp+".mtpt.bed"
+	S="awk -v OFS='\\t' '{if ($9 <= $10) print $2, $9, $10, $1, $7, $8, $3, $11, $12; else print $2, $10, $9, $1, $7, $8, $3, $11, $12}' "+sp+".mtpt.blast| sort -k1,1 -k2,2n -k4,4n -k8,8g | awk 'BEGIN{FS=OFS='\\t'} {print $0, NR}' > "+sp+".mtpt.bed"
+	#S="awk -v OFS='\\t' '{if ($9 <= $10) print $1, $7, $8, $2, $9, $10, $3, $11, $12; else print $1, $7, $8, $2, $10, $9, $3, $11, $12}' "+sp+".mtpt.blast| sort -k1,1 -k2,2n -k4,4n -k8,8g | awk 'BEGIN{FS=OFS='\\t'} {print $0, NR}' > "+sp+".mtpt.bed"
 	os.system(S)
 	#define potential HGT blocks
 	#otherfam_merged=pybedtools.BedTool(''.join(otherfam), from_string=True).merge(c=9,o='collapse')
-
 	S="bedtools merge -i "+sp+".mtpt.bed -c 9 -o collapse >"+sp+'.temp.bed'
 	os.system(S)
 	#extract sequences for each block
 	loci=open(sp+'.temp.bed').readlines()
 	hits=open(sp+'.mtpt.bed').readlines()
 	q_recs=SeqIO.index(query,'fasta')
-	ref_recs=SeqIO.index(pt_reference, 'fasta')
+	ref_recs=SeqIO.index(sp+'.pt_db.fas', 'fasta')
 	seq_loc={}
-	for l in hits:
-		seq_loc[l.split()[-1]]=l
+	for l in hits:seq_loc[l.split()[-1]]=l
 	order=1
+	retained_order=[]
+	#create an ncbi_id to taxonomy diction
+	id2sp={}
+	id2fam={}
+	taxon_ref=open(script_path+'/database/pt_Viridiplantae_taxonomy.tsv').readlines()
+	for l in taxon_ref[1:]:
+		id2sp[l.split()[0]]=l.split('\t')[7].strip()
+		id2fam[l.split()[0]]=l.split('\t')[5]
+	output_dir = sp+'_HGTscanner_supporting_files'
+	if not os.path.isdir(output_dir):os.mkdir(output_dir)
 	for l in loci:
-		out=open(sp+'.temp.'+str(order)+'.fas','w')
-		d=SeqIO.write(q_recs[l.split()[0]][(int(l.split()[1])-1):int(l.split()[2])],out,'fasta')
-		out.close()
-		out=open(sp+'.temp.'+str(order)+'.fas','a')
 		bed_ids=l.split()[3].strip()
 		bed_ids=bed_ids.split(',')
+		if len(bed_ids)<3:
+			order=order+1
+			continue
+		out=open(output_dir+'/'+sp+'.temp.'+str(order)+'.fas','w')
+		d=SeqIO.write(q_recs[l.split()[0]][(int(l.split()[1])-1):int(l.split()[2])],out,'fasta')
+		out.close()
+		out=open(output_dir+'/'+sp+'.temp.'+str(order)+'.fas','a')
+		#if too many blast hits, only retain the top 200 hits to save computational time. I also notice the IR region was included twice for a single species. Thus only one best hit will be selected from each species.
+		if len(bed_ids)>200:
+			bed_ids = filter_blast_results(bed_ids,200)
 		for i in bed_ids:
 			line=seq_loc[i]
 			id=line.split()[3]
 			start=int(line.split()[4])-1
 			end=int(line.split()[5])
-			d=out.write('>'+id+'_'+str(start)+'_'+str(end)+'\n')
+			try:d=out.write('>'+id2fam[id.split('.')[0]]+'|'+id2sp[id.split('.')[0]]+'|'+id+'_'+str(start)+'_'+str(end)+'\n')
+			except KeyError:d=out.write('>'+id+'_'+str(start)+'_'+str(end)+'\n')
 			d=out.write(str(ref_recs[id].seq[start:end])+'\n')
 		out.close()
+		retained_order.append(order)
 		order=order+1
 	print(str(datetime.datetime.now())+'\tExatracted '+ str(order-1)+' potential MTPT sequences for '+sp)
 	#alignment and phylogenetic reconstruction
-	print(str(datetime.datetime.now())+'\tStart alignment and phylogenetic reconstruction with mafft and iqtree for '+str(order-1)+' regions. May take a while...')
-	for i in range(1,order):
-		S="mafft --quiet --adjustdirection "+sp+".temp."+str(i)+".fas | sed 's/_R_//g' > "+sp+".gt."+str(i)+".aln.fas"
+	print(str(datetime.datetime.now())+'\tStart alignment and phylogenetetic inference for '+str(len(retained_order))+' loci with more than 3 taxa. May take a while...')
+	for i in retained_order:
+		print(f"{str(datetime.datetime.now())}\tAnalyzing Loci #{i}")
+		#S="nohup mafft --quiet --adjustdirection "+output_dir+"/"+sp+".temp."+str(i)+".fas | sed 's/_R_//g' > "+output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas > /dev/null 2>&1 &"
+		S="mafft --quiet --adjustdirection "+output_dir+"/"+sp+".temp."+str(i)+".fas | sed 's/_R_//g' > "+output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas"
+		#print(S)
 		os.system(S)
-		b=SeqIO.index(sp+".gt."+str(i)+".aln.fas",'fasta')
+		b=SeqIO.index(output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas",'fasta')
 		q=loci[i-1].split()[0]
 		if len(b[q].seq)<10000:
-			S="nohup iqtree -B 1000 -T 4 --quiet -redo -s "+sp+".gt."+str(i)+".aln.fas >/dev/null 2>&1"
+			S="nohup iqtree -B 1000 -T 2 --quiet -redo -s "+output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas >/dev/null 2>&1"
 			os.system(S)
-			print(str(datetime.datetime.now())+'\tLoci #'+str(i))
 		else:print(str(datetime.datetime.now())+'\tLoci #'+str(i)+' is longer than 10kb. Skip tree building. Check manually.')
 	print(str(datetime.datetime.now())+'\tCleaning intermediate files')
-	os.system('rm '+sp+'*.bionj')
-	os.system('rm '+sp+'*.gz')
-	os.system('rm '+sp+'*.log')
-	os.system('rm '+sp+'*.iqtree')
-	os.system('rm '+sp+'*.mldist')
-	os.system('rm '+sp+'*.phy')
-	os.system('rm '+sp+'*.contree')
-	os.system('rm '+sp+'*.nex')
+	os.system('rm '+output_dir+"/"+sp+'*.bionj')
+	os.system('rm '+output_dir+"/"+sp+'*.gz')
+	os.system('rm '+output_dir+"/"+sp+'*.log')
+	os.system('rm '+output_dir+"/"+sp+'*.iqtree')
+	os.system('rm '+output_dir+"/"+sp+'*.mldist')
+	os.system('rm '+output_dir+"/"+sp+'*.phy')
+	os.system('rm '+output_dir+"/"+sp+'*.contree')
+	os.system('rm '+output_dir+"/"+sp+'*.nex')
 	##############
 	#Evaluate the source of the region and output summary file
 	out=open(sp+'.mtpt.sum.tsv','w')
 	out.write('ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tBlast_hit_ID\n')
-	for i in range(1,order):
+	for i in retained_order:
 		q=loci[i-1].split()[0]
 		outgroup=[]
 		try:
-			t=Tree(sp+'.gt.'+str(i)+'.aln.fas.treefile')
+			t=Tree(output_dir+"/"+sp+'.mtpt.'+str(i)+'.aln.fas.treefile')
+			#check branch length of query first, if too long, certainly an ancestral mt transfer and not a young mtpt
 			ancestor=t.get_midpoint_outgroup()
 			t.set_outgroup(ancestor)
 			q_branch=t&q
-			if not q_branch.get_ancestors()[0].is_root():
-				sisters=[leaf.name for leaf in q_branch.get_sisters()[0]]
-			else:
-				t=Tree(sp+'.gt.'+str(i)+'.aln.fas.treefile')
-				outgroup=[leaf.name for leaf in t if leaf.name.startswith('Sorghum')]
-				if len(outgroup)>0:
-					t.set_outgroup(outgroup[0])
-					q_branch=t&q
-					sisters=[leaf.name for leaf in q_branch.get_sisters()[0]]
-				else:
-					outgroup=[leaf.name for leaf in t if leaf.name.startswith('Rehm')]
-					if outgroup:
-						t.set_outgroup(t&outgroup[0])
-						q_branch=t&q
-						sisters=[leaf.name for leaf in q_branch.get_sisters()[0]]
-					else:
-						#no sorghum no rehmannia
-						sisters=[leaf.name for leaf in q_branch.get_sisters()[0]]
+			if q_branch.dist>1:
+				out.write(str(i)+'\t'+loci[i-1].split()[0]+'\t'+loci[i-1].split()[1]+'\t'+loci[i-1].split()[2]+'\tNA\tNA\n')
+			if q_branch.get_ancestors()[0].is_root():
+				pass#handle root
+			sisters=[leaf.name for leaf in q_branch.get_sisters()[0]]
 			out.write(str(i)+'\t'+loci[i-1].split()[0]+'\t'+loci[i-1].split()[1]+'\t'+loci[i-1].split()[2]+'\t'+','.join(sisters)+'\t'+loci[i-1].split()[3]+'\n')
 		except ete3.parser.newick.NewickError:
-			sisters=open(sp+'.temp.'+str(i)+".fas").readlines()
+			sisters=open(output_dir+"/"+sp+'.temp.'+str(i)+".fas").readlines()
 			sisters=[i[1:].strip() for i in sisters if (i.startswith('>')) and (not i[1:].strip()==q)]
 			out.write(str(i)+'\t'+loci[i-1].split()[0]+'\t'+loci[i-1].split()[1]+'\t'+loci[i-1].split()[2]+'\t'+'ALL HITS: '+','.join(sisters)+'\t'+loci[i-1].split()[3]+'\n')
 	out.close()
 	#organizing files
-	os.system('rm '+sp+'.temp.*.fas')
+	#os.system('rm '+output_dir+"/"+sp+'.temp.*.fas')
 	os.system('rm '+sp+'.temp.bed')
+	os.system('rm '+sp+'.pt_db.fas')
 	os.system('rm '+sp+'.n*')
-	if not os.path.isdir('HGTscanner_supporting_files'):os.mkdir('HGTscanner_supporting_files')
-	os.system('mv '+sp+'.*.aln.fas* HGTscanner_supporting_files')
 	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.hgt.sum.tsv')
 
 #####################################
 #IV. Default mode for HGT detection
-
 else:
 	if args.b:
 		mask_bed=args.b
 		print(str(datetime.datetime.now())+'\tMasking query sequence '+query+' using the bed file: '+args.b)
 		mask_fasta_with_bed(query, mask_bed, sp+'.mask.fas')
 	#BLAST
-	if args.ref:
-		#add custom references to database
-		print(str(datetime.datetime.now())+'\tAdded custom reference '+reference+' to the NCBI Viridiplantae mitochondrial database')
-		S='cat '+reference+' Viridiplantae_mt.fasta >'+sp+'.mt_db.fas'
-		os.system(S)
-	else:
-		S='cp Viridiplantae_mt.fasta '+sp+'.mt_db.fas'
-		os.system(S)
 	S='makeblastdb -in '+sp+'.mt_db.fas -out '+sp+'.mt -dbtype nucl >/dev/null'
 	os.system(S)
-	if args.b:S='blastn -task dc-megablast -query '+sp+'.mask.fas -db '+sp+'.mt -outfmt 6 -evalue 1e-20 >'+sp+'.raw.blast'
-	else:S='blastn -task dc-megablast -query '+query+' -db '+sp+'.mt -outfmt 6 -evalue 1e-20 >'+sp+'.raw.blast'
+	evalue=1e-20
+	if args.e:evalue=args.e
+	if args.b:S='blastn -task dc-megablast -query '+sp+'.mask.fas -db '+sp+'.mt -outfmt 6 -evalue '+evalu+' >'+sp+'.mt.blast'
+	else:S='blastn -task dc-megablast -query '+query+' -db '+sp+'.mt -outfmt 6 -evalue '+evalue+' >'+sp+'.mt.blast'
 	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#Add taxonomic information to each hit at species and family level to help identify syntenic blocks
-	x=open(sp+'.raw.blast').readlines()
+	x=open(sp+'.mt.blast').readlines()
 	out=open(sp+'.taxon.blast','w')
 	species={}
 	family={}
@@ -335,7 +400,6 @@ else:
 	for l in y:
 		species[l.split('\t')[0]]=l.split('\t')[1]
 		family[l.split('\t')[0]]=l.split('\t')[2].strip()
-
 	for l in x:
 		try:
 			d=out.write(l.strip()+'\t'+species[l.split()[1]]+'\t'+family[l.split()[1]]+'\n')
@@ -347,7 +411,7 @@ else:
 	S="cat "+sp+".taxon.blast | sort -k1,1 -k7,7n -k11,11n | awk -v OFS='\\t' '{if ($8-$7 <= 20000) print $1, $7, $8, $2, $9, $10, $13, $14, NR}' > "+sp+".taxon_sorted.bed"
 	os.system(S)
 	#define potential HGT blocks
-	#classify these hits based on source, here, alignments from Orobanchaceae, Lamiaceae, Oleaceae, and Scrophulariaceae will be regarded as close relatives
+	#classify these hits based on source, here, alignments from the ingroups will be filtered to merge synteny blocks
 	#This is necessary because they create long synteny blocks that may be broken by HGT in the middle
 	x=open(sp+".taxon_sorted.bed").readlines()
 	otherfam=[]
@@ -357,7 +421,6 @@ else:
 			otherfam.append(l)
 		else:
 			samefam.append(l)
-
 	otherfam_merged=pybedtools.BedTool(''.join(otherfam), from_string=True).merge(c=9,o='collapse')
 	samefam_bed=pybedtools.BedTool(''.join(samefam), from_string=True)
 	out=open(sp+'.merged.bed','w')
@@ -453,33 +516,4 @@ else:
 	#############
 	#alignment and phylogenetic reconstruction
 	print(str(datetime.datetime.now())+'\tStart alignment and phylogenetic reconstruction with mafft and iqtree for '+str(order-1)+' regions. May take a while...')
-
-#for i in range(1,order):
-#	current_time = datetime.datetime.now()
-#	print(f"{current_time}\t Sequence alignment and IQTREE for alignment #{i}", end='\r')
-#	S="timeout 20m mafft --genafpair --maxiterate 1000 --quiet --adjustdirection "+sp+".hgt."+str(i)+".fas | sed 's/_R_//g' > "+sp+".hgt."+str(i)+".aln.fas"
-#	os.system(S)
-	#recs=list(SeqIO.parse(sp+".hgt."+str(i)+".fas",'fasta'))
-	#max_len=max([len(rec.seq) for rec in recs])
-	#if max_len<1500:
-	#	S="mafft --localpair --maxiterate 1000 --quiet --adjustdirection "+sp+".hgt."+str(i)+".fas | sed 's/_R_//g' > "+sp+".hgt."+str(i)+".aln.fas"
-	#	S="mafft --adjustdirection --6merpair --addfragments othersequences referencesequence > output"
-	#	os.system(S)
-	#	S="nohup iqtree -B 1000 -T 4 --quiet -m GTR+F -redo -s "+sp+".hgt."+str(i)+".aln.fas >/dev/null 2>&1"
-	#	os.system(S)
-	#elif max_len<5000:
-	#	S="mafft --quiet --adjustdirection "+sp+".hgt."+str(i)+".fas | sed 's/_R_//g' > "+sp+".hgt."+str(i)+".aln.fas"
-	#	os.system(S)
-	#	S="nohup iqtree -B 1000 -T 4 --quiet -m GTR+F -redo -s "+sp+".hgt."+str(i)+".aln.fas >/dev/null 2>&1"
-	#	os.system(S)
-	#else:print(str(datetime.datetime.now())+'\tLoci #'+str(i)+' is longer than 10kb. Skip tree building. Check manually.')
-
-#os.system('rm '+sp+'*.bionj')
-#os.system('rm '+sp+'*.gz')
-#os.system('rm '+sp+'*.log')
-#os.system('rm '+sp+'*.iqtree')
-#os.system('rm '+sp+'*.mldist')
-#os.system('rm '+sp+'*.phy')
-#os.system('rm '+sp+'*.contree')
-#os.system('rm '+sp+'*.nex')
 
