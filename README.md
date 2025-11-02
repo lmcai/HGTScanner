@@ -110,13 +110,7 @@ python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_
 #Use a user-selected Genbank accessions as BLAST database (instead of adding to the default db)
 python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_fix_id [genbank_id.txt]
 ```
-Users can also add their own plastid sequences:
-```
-#Add custom sequences
-python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_seq [fasta_file] 
-#Or combining many sources
-python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_id [more_genbank_id.txt] -pt_add_seq [fasta_file]
-```
+
 *Output:* 
 
 The following files will be generated:
@@ -133,18 +127,25 @@ The following files will be generated:
 
 ### 2. HGT detection in mitochondrial genomes
 
-*Input:* A fasta-formatted assembly of the query organelle genome. To identify mito HGT, use the following command:
+*Input:* A fasta-formatted assembly of the query organelle genome. To identify mito HGT, use the following command. Note that the optional bed file for masking gene coding and MTPT regions is optional, but highly recommended to avoid excessive BLAST hits in these loci:
 ```
 python HGTscanner.py -q [query.fas]  -o [output_prefix] -f [query_species_family] -b [bed_file_for_masking]
-```
-The optional bed file for masking gene coding and MTPT regions is optional, but highly recommended.
-
-User can add their custom mitochondrial sequences to the database as well:
-```
-python HGTscanner.py -q [query.fas]  -o [output_prefix] -f [query_species_family] -b [bed_file_for_masking] -mt_add_seq [mt.fas]
 ```
 
 *Output:* 
 
 The following files will be generated:
 
+### 3. Adding custom sequences
+
+Users can also add their own plastid sequences:
+```
+#Add custom sequences
+python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_seq [fasta_file] 
+#Or combining many sources
+python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_id [more_genbank_id.txt] -pt_add_seq [fasta_file]
+```
+User can add their custom mitochondrial sequences to the database as well:
+```
+python HGTscanner.py -q [query.fas]  -o [output_prefix] -f [query_species_family] -b [bed_file_for_masking] -mt_add_seq [mt.fas]
+```
