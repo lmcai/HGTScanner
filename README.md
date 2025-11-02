@@ -70,8 +70,6 @@ git clean -f -d
 
 ## II. Quick start
 
-**Core functions of HGTScanner**
-
 ### Usage:
 
 ```
