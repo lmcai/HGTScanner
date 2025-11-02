@@ -11,11 +11,11 @@
 ## Quick link
 [I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner#v-general-guidelines-for-genome-skimming-data-collection)
 
-[I. Prerequisites and installation](https://github.com/lmcai/HGTScanner#i-prerequisites-and-installation)
+[II. Prerequisites and installation](https://github.com/lmcai/HGTScanner#i-prerequisites-and-installation)
 	
-[II. Quick start](https://github.com/lmcai/HGTScanner#ii-quick-start)
+[III. Quick start](https://github.com/lmcai/HGTScanner#ii-quick-start)
 
-[III. Complete tutorial for HGT detection in Aphyllon](https://github.com/lmcai/HGTScanner#iii-complete-tutorial-for-hgt-detection-in-aphyllon)
+[IV. Complete tutorial for HGT detection in Aphyllon](https://github.com/lmcai/HGTScanner#iii-complete-tutorial-for-hgt-detection-in-aphyllon)
 
 ## I. General guidelines for experimental design
 
@@ -37,7 +37,7 @@ What is very challenging and **discoraged use** of HGTScanner :imp::
 
 - Apply HGTScanner to nuclear genomes (the primary concern is the all-by-all pairwise BLAST is not optimized for giga-sized genomes)
 
-## I. Prerequisites and installation
+## II. Prerequisites and installation
 
 **Installation**
 
