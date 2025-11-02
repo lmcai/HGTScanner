@@ -137,20 +137,22 @@ The following files will be generated:
 ### 3. Adding custom sequences
 
 Users can also add their own plastid (via `-pt_add_seq`) or mitochondrial (via `-mt_add_seq`) sequences to provide more comprehensive taxon sampling. The headers of these sequences need to be formatted as "family|species|[additional_header_string]". **No space (' ') should be included in the header.** This is necessary to use the taxonomy information for HGT detection. Unformatted sequences will not be used in the downstream analysis.
+
+Example of user-added fasta
 ```
-#Example of user-added fasta
 >Fabaceae|Indigofera_tinctoria|my_seq_ID1
 ATCGATCGATCG
 >Geraniaceae|Geranium maculatum|my_seq_ID2
 ATCGATCGATCG
 ...
 ```
+Once the sequences are correctly prepared, the users can add them to the database to identify MTPT or mt HGT.
 
 For MTPT:
 ```
 #Add custom sequences
 python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_seq [fasta_file] 
-#Or combining many sources
+#Add custom sequences and add more sequences from the built-in database
 python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_id [more_genbank_id.txt] -pt_add_seq [fasta_file]
 ```
 For mt HGT:
