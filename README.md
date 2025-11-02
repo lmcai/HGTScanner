@@ -41,7 +41,7 @@ What is very challenging and **discoraged use** of HGTScanner :imp::
 
 **Installation**
 
-To install HGTScanner, simply download it use `git`:
+1. To install HGTScanner, simply download it use `git`:
 ```
 git clone https://github.com/lmcai/HGTScanner.git
 ```
@@ -51,7 +51,7 @@ Or from the source package:
 wget [html]
 tar xzvf hgtscanner_v1.1.tar.gz
 ```
-Then install dependencies via conda, which will create a conda environment called `hgtscanner`
+2. Then install dependencies via conda, which will create a conda environment called `hgtscanner`
 ```
 cd HGTScanner
 conda env create -f environment.yml
@@ -61,7 +61,7 @@ The environment can be activated by
 conda activate hgtscanner
 ```
 
-To update your local version for any future releases, `cd` into the `PhyloHerb` directory then type
+3. To update your local version for any future releases, `cd` into the `PhyloHerb` directory then type
 ```
 git fetch --prune origin
 git reset --hard origin
