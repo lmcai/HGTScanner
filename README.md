@@ -37,9 +37,9 @@ What is very challenging and **discoraged use** of HGTScanner :imp::
 
 - Apply HGTScanner to nuclear genomes (the primary concern is the all-by-all pairwise BLAST is not optimized for giga-sized genomes)
 
-## II. Prerequisites and installation
+## II. Installation
 
-**Installation**
+HGTScanner has been test on macOS and Linux.
 
 1. To install HGTScanner, simply download it use `git`:
 ```
@@ -61,7 +61,9 @@ The environment can be activated by
 conda activate hgtscanner
 ```
 
-3. To update your local version for any future releases, `cd` into the `PhyloHerb` directory then type
+3. Download Viridiplantae database
+
+4. To update your local version for any future releases, `cd` into the `PhyloHerb` directory then type
 ```
 git fetch --prune origin
 git reset --hard origin
