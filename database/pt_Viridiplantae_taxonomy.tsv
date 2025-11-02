@@ -1,4 +1,4 @@
-Locus	NCBI_taxid	NCBI_phylum	NCBI_class	NCBI_order	NCBI_family	NCBI_genus	NCBI_species	In_default_rep_db
+GenBank_ID	NCBI_taxid	NCBI_phylum	NCBI_class	NCBI_order	NCBI_family	NCBI_genus	NCBI_species	In_default_rep_db
 NC_054308	328098	Streptophyta	Magnoliopsida	Lamiales	Acanthaceae	Acanthus	Acanthus_ilicifolius	TRUE
 NC_070388	1605257	Streptophyta	Magnoliopsida	Lamiales	Acanthaceae	Acanthus	Acanthus_leucostachyus	FALSE
 NC_070389	76277	Streptophyta	Magnoliopsida	Lamiales	Acanthaceae	Acanthus	Acanthus_mollis	FALSE

@@ -67,3 +67,54 @@ git fetch --prune origin
 git reset --hard origin
 git clean -f -d
 ```
+
+## II. Quick start
+
+**Core functions of HGTScanner**
+
+### Usage:
+
+```
+HGTscanner.py		-q query -o output_prefix -f family [-mtpt] 
+					[-pt_fix_id id_file] [-pt_add_seq fatsa] [-pt_add_id id_file] 
+					[-hit number of hits] [-mt_add_seq fasta] [-b bed_file] [-e evalue]
+```
+
+### Options:
+```
+options:
+  -h, --help           show this help message and exit
+  -q query             Fasta file of the query genome
+  -o output_prefix     Output prefix
+  -f family            Family of the query for HGT classification
+  -mtpt                Invoking the MTPT mode
+  -pt_fix_id id_file   A file of user-selected GenBank accession numbers for MTPT detection.
+  -pt_add_seq fatsa    A fasta file containing plastid references for MTPT detection.
+  -pt_add_id id_file   A file user-selected GenBank accession numbers for MTPT detection.
+  -hit number of hits  Number of best blast hits to be included.
+  -mt_add_seq fasta    A fasta file containing mitochondrial references for mt HGT detection.
+  -b bed_file          A bed file for regions to be masked
+  -e evalue            BLAST evalue threshold
+```
+
+**1. MTPT detection**
+
+*Input:* A fasta-formatted assembly of the query organelle genome. To identify MTPT, use the following command:
+
+```
+#Use the default 3722-genera plastid Viridiplantae database
+python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family]
+```
+The list of species included in our built-in plastid Viridiplantae database can be found [here](/database/pt_Viridiplantae_taxonomy.tsv). One representative species per genus (totalling 3722) has been selected from the entire NCBI plastid reference genome database. Users can add more species from the complete built in database by:
+```
+#Add species to the default database
+python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_id [more_genbank_id.txt]
+#Use a user-selected Genbank accessions as BLAST database (instead of adding to the default db)
+python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_fix_id [genbank_id.txt]
+```
+Users can also add their own plastid sequences:
+```
+#Add custom sequences
+python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_seq [fasta_file] 
+```
+*Output:* In the output folder, you can find fasta sequences named after genes. The header within each fasta is consistent with the species names (file names of the input assemblies).

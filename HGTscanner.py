@@ -39,16 +39,16 @@ except ImportError as e:
 
 
 parser = argparse.ArgumentParser(description='HGTscanner is a tool to identify HGT blocks in organellar genomes.')
-parser.add_argument('-q', metavar='query', help='fasta file of the target genome', required=True)
-parser.add_argument('-o', metavar='output_prefix', help='output prefix', required=True)
-parser.add_argument('-f', metavar='family', help='family of the query for HGT classification', required=True)
-parser.add_argument('-mtpt', action='store_true', help='invoke the MTPT mode')
-parser.add_argument('-pt_fix_id', metavar='id_file', help='replace the default representative 3722-sp pt db with custom-selected ids from the complete Viridiplantae plastid db.')
-parser.add_argument('-pt_add_seq', metavar='fatsa', help='fasta file containing custom plastid references of both close relatives and potential HGT donor. This will be combined with the 3722-sp pt db.')
-parser.add_argument('-pt_add_id', metavar='id_file', help='file containing ids from the complete Viridiplantae plastid db to be combined with the default 3722-sp pt db.')
-parser.add_argument('-hit', metavar='number of hits', help='The number of best blast hit to be included.')
-parser.add_argument('-mt_add_seq', metavar='fasta', help='fasta file containing custom mitochondrial references of both close relatives and potential HGT donor. This will be combined with the NCBI Viridiplantae mito database.')
-parser.add_argument('-b', metavar='bed_file', help='bed file for regions to be masked')
+parser.add_argument('-q', metavar='query', help='Fasta file of the query genome', required=True)
+parser.add_argument('-o', metavar='output_prefix', help='Output prefix', required=True)
+parser.add_argument('-f', metavar='family', help='Family of the query for HGT classification', required=True)
+parser.add_argument('-mtpt', action='store_true', help='Invoking the MTPT mode')
+parser.add_argument('-pt_fix_id', metavar='id_file', help='A file of user-selected GenBank accession numbers for MTPT detection.')
+parser.add_argument('-pt_add_seq', metavar='fatsa', help='A fasta file containing plastid references for MTPT detection.')
+parser.add_argument('-pt_add_id', metavar='id_file', help='A file user-selected GenBank accession numbers for MTPT detection.')
+parser.add_argument('-hit', metavar='number of hits', help='Number of best blast hits to be included.')
+parser.add_argument('-mt_add_seq', metavar='fasta', help='A fasta file containing mitochondrial references for mt HGT detection.')
+parser.add_argument('-b', metavar='bed_file', help='A bed file for regions to be masked')
 parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
 
 ####################################
@@ -63,9 +63,9 @@ script_path = os.path.dirname(script_path)
 if args.f:
 	fam = args.f
 
-def id2seq(ids,output):
+def id2seq(ids,output_file):
 	recs=SeqIO.parse(script_path+'/database/Viridiplantae_pt_aug2025.genome.fas','fasta')
-	out=open(output,'a')
+	out=open(output_file,'a')
 	for rec in recs:
 		id=rec.id
 		if id.split('.')[0] in ids:d=SeqIO.write(rec,out,'fasta')
