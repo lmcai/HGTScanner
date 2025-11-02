@@ -1,0 +1,25 @@
+name: hgtscanner
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Core Python environment
+  - python >=3.9
+
+  # Bioinformatics tools (external dependencies)
+  - blast          # includes blastn, makeblastdb, etc.
+  - iqtree         # phylogenetic inference
+
+  # Python libraries
+  - biopython      # for Bio.SeqIO and sequence handling
+  - ete3           # for Tree parsing and manipulation
+  - pybedtools     # for genomic interval operations
+  - numpy          # for numerical calculations
+  - pandas         # for table processing and data analysis
+
+  # Optional useful tools
+  - pip
+  - pip:
+      - statistics  # only installs if missing (usually built-in)
