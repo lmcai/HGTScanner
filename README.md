@@ -103,7 +103,7 @@ options:
 #Use the default 3722-genera plastid Viridiplantae database
 python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family]
 ```
-The list of species included in our built-in plastid Viridiplantae database can be found [here](/database/pt_Viridiplantae_taxonomy.tsv). One representative species per genus (totalling 3722) has been selected from the entire NCBI plastid reference genome database. Users can add more species from the *built in* database by:
+The list of species included in our built-in plastid Viridiplantae database can be found [here](/database/pt_Viridiplantae_taxonomy.tsv). One representative species per genus (totalling 3722) has been selected from the entire NCBI plastid reference genome database. Users can add more species from the **built in** database by:
 ```
 #Add species to the default database
 python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_id [more_genbank_id.txt]
