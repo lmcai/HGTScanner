@@ -51,10 +51,13 @@ Or from the source package:
 wget [html]
 tar xzvf hgtscanner_v1.1.tar.gz
 ```
-Then install dependencies via conda
+Then install dependencies via conda, which will create a conda environment called `hgtscanner`
 ```
 cd HGTScanner
 conda env create -f environment.yml
+```
+The environment can be activated by
+```
 conda activate hgtscanner
 ```
 
