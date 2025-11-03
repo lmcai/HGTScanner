@@ -9,9 +9,9 @@
 **Contact**: Reach out to Liming Cai (cail@ufl.edu) for questions or open an [Issue](https://github.com/lmcai/HGTScanner/issues).
 
 ## Quick link
-[I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner#v-general-guidelines-for-genome-skimming-data-collection)
+[I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner#i-general-guidelines-for-genome-skimming-data-collection)
 
-[II. Prerequisites and installation](https://github.com/lmcai/HGTScanner#i-prerequisites-and-installation)
+[II. Installation](https://github.com/lmcai/HGTScanner#ii-prerequisites-and-installation)
 	
 [III. Quick start](https://github.com/lmcai/HGTScanner#ii-quick-start)
 
