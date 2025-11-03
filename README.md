@@ -9,11 +9,11 @@
 **Contact**: Reach out to Liming Cai (cail@ufl.edu) for questions or open an [Issue](https://github.com/lmcai/HGTScanner/issues).
 
 ## Quick link
-[I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner#i-general-guidelines-for-genome-skimming-data-collection)
+[I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner/blob/main/README.md#i-general-guidelines-for-experimental-design)
 
-[II. Installation](https://github.com/lmcai/HGTScanner#ii-prerequisites-and-installation)
+[II. Installation](https://github.com/lmcai/HGTScanner#ii-installation)
 	
-[III. Quick start](https://github.com/lmcai/HGTScanner#ii-quick-start)
+[III. Quick start](https://github.com/lmcai/HGTScanner#iii-quick-start)
 
 [IV. Complete tutorial for HGT detection in Aphyllon](https://github.com/lmcai/HGTScanner#iii-complete-tutorial-for-hgt-detection-in-aphyllon)
 
