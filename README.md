@@ -70,7 +70,7 @@ git reset --hard origin
 git clean -f -d
 ```
 
-## II. Quick start
+## III. Quick start
 
 ### Usage:
 
