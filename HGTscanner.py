@@ -264,26 +264,25 @@ def dedup_pt_ids(bed_id):
 	filtered_bed = df_max_per_group.iloc[:, -1].tolist()
 	return [i.strip() for i in filtered_bed]
 			
-def filter_blast_results(bed_id, top_n=100,pt_screen=False):
+def filter_blast_results(bed_id, family, top_n=100):
 	GROUP_COL = 3
 	EVAL_COL = 7
 	BITSCORE = 6
+	FAMILY = 9
 	data_lines = [seq_loc[i] for i in bed_id]
 	data_lines = [l.split() for l in data_lines]
 	df = pd.DataFrame(data_lines)
-	df.rename(columns={GROUP_COL: 'GroupID', EVAL_COL: 'evalue', BITSCORE: 'bitscore'}, inplace=True)
-	if pt_screen:
-		df_max_per_group = (
-			df.sort_values(by=['GroupID', 'evalue'], ascending=[True, True])
-			.drop_duplicates(subset=['GroupID'], keep='first')
-		)
-	else:df_max_per_group=df
-	df_max_per_group["evalue"] = pd.to_numeric(df_max_per_group["evalue"], errors="coerce")
-	df_max_per_group["bitscore"] = pd.to_numeric(df_max_per_group["bitscore"], errors="coerce")
-	df_final = df_max_per_group.sort_values(
-		by=['evalue', 'bitscore'],
+	df.rename(columns={GROUP_COL: 'GroupID', EVAL_COL: 'evalue', BITSCORE: 'bitscore', FAMILY: 'family'}, inplace=True)
+	df["evalue"] = pd.to_numeric(df["evalue"], errors="coerce")
+	df["bitscore"] = pd.to_numeric(df["bitscore"], errors="coerce")
+	df_sorted = df.sort_values(
+		by=["evalue", "bitscore"],
 		ascending=[True, False]
-	).head(top_n)
+	)
+	df_final = pd.concat([
+		df_sorted.head(top_n),
+		df_sorted[df_sorted["family"] == family]
+	]).drop_duplicates()
 	filtered_bed = df_final.iloc[:, -1].tolist()
 	return [i.strip() for i in filtered_bed]
 
@@ -362,7 +361,7 @@ if args.mtpt:
 		hit_num = 200
 		if args.hit:hit_num=args.hit
 		if len(ids)>hit_num:
-			ids = filter_blast_results(ids,hit_num, pt_screen=True)
+			ids = filter_blast_results(ids,fam,hit_num)
 		for i in ids:
 			line=seq_loc[i]
 			id=line.split()[3]
@@ -513,7 +512,7 @@ else:
 		hit_num = 300
 		if args.hit:hit_num=args.hit
 		if len(ids)>hit_num:
-			ids = filter_blast_results(ids,hit_num,pt_screen=False)
+			ids = filter_blast_results(ids,fam,hit_num)
 		raw_beds_txt=[seq_loc[j] for j in ids]
 		seqout_beds=aln_scaffolder(raw_beds_txt,split_block=True)
 		if seqout_beds[0]=='X':
