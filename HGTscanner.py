@@ -335,7 +335,7 @@ if args.mtpt:
 	hits=open(sp+'.mtpt.bed').readlines()
 	loci=pybedtools.BedTool(''.join(hits), from_string=True).merge(c=11,o='collapse')
 	out=open(sp+'.mtpt.merged.bed','w')
-	d=out.write('\n'.join([str(i) for i in loci]))
+	d=out.write(''.join([str(i) for i in loci]))
 	out.close()
 	q_recs=SeqIO.index(query,'fasta')
 	ref_recs=SeqIO.index(sp+'.pt_db.fas', 'fasta')
@@ -343,6 +343,8 @@ if args.mtpt:
 	for l in hits:seq_loc[l.split()[-1]]=l
 	order=1
 	retained_order=[]
+	sum_out=open(sp+'.mtpt.sum.tsv','w')
+	sum_out.write('ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tDonor_family\tDonor_genus\tDonor_species\tUFBP\n')
 	output_dir = sp+'_HGTscanner_supporting_files'
 	if not os.path.isdir(output_dir):os.mkdir(output_dir)
 	for l in loci:
@@ -378,8 +380,10 @@ if args.mtpt:
 		d = SeqIO.write(q_rec_out, out, 'fasta')
 		#d=SeqIO.write(q_recs[l.split()[0]][(int(l.split()[1])-1):int(l.split()[2])],out,'fasta')
 		out.close()
+		sum_out.write(f"{order}\t{l.chrom}\t{start}\t{end}\tTBD\tTBD\tTBD\tTBD\tTBD\n")
 		retained_order.append(order)
 		order=order+1
+	sum_out.close()
 	print(str(datetime.datetime.now())+'\tExatracted '+ str(order-1)+' potential MTPT sequences for '+sp)
 	#alignment and phylogenetic reconstruction
 	print(str(datetime.datetime.now())+'\tStart alignment for '+str(len(retained_order))+' loci with more than 3 taxa. May take a while...')
@@ -408,8 +412,6 @@ if args.mtpt:
 	os.system('rm '+output_dir+"/"+sp+'*.nex')
 	##############
 	#Evaluate the source of the region and output summary file
-	out=open(sp+'.mtpt.sum.tsv','w')
-	out.write('ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tBlast_hit_ID\n')
 	for i in retained_order:
 		q=loci[i-1].split()[0]
 		outgroup=[]
@@ -429,7 +431,7 @@ if args.mtpt:
 			sisters=open(output_dir+"/"+sp+'.mtpt.'+str(i)+".fas").readlines()
 			sisters=[i[1:].strip() for i in sisters if (i.startswith('>')) and (not i[1:].strip()==q)]
 			out.write(str(i)+'\t'+loci[i-1].split()[0]+'\t'+loci[i-1].split()[1]+'\t'+loci[i-1].split()[2]+'\t'+'ALL HITS: '+','.join(sisters)+'\t'+loci[i-1].split()[3]+'\n')
-	out.close()
+	
 	#organizing files
 	os.system('rm '+sp+'.pt_db.fas')
 	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.hgt.sum.tsv')
