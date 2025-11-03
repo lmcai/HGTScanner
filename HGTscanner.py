@@ -248,6 +248,21 @@ def seq2seq_ortho_extraction(seed_file,targets_file):
 		reordered_hits.append('\t'.join(reordered) + '\n')
 	hits_bed_txt=aln_scaffolder(reordered_hits,split_block=False)
 	return(hits_bed_txt)
+
+def dedup_pt_ids(bed_id):
+	GROUP_COL = 3
+	EVAL_COL = 7
+	BITSCORE = 6
+	data_lines = [seq_loc[i] for i in bed_id]
+	data_lines = [l.split() for l in data_lines]
+	df = pd.DataFrame(data_lines)
+	df.rename(columns={GROUP_COL: 'GroupID', EVAL_COL: 'evalue', BITSCORE: 'bitscore'}, inplace=True)
+	df_max_per_group = (
+		df.sort_values(by=['GroupID', 'evalue'], ascending=[True, True])
+		.drop_duplicates(subset=['GroupID'], keep='first')
+	)
+	filtered_bed = df_max_per_group.iloc[:, -1].tolist()
+	return [i.strip() for i in filtered_bed]
 			
 def filter_blast_results(bed_id, top_n=100,pt_screen=False):
 	GROUP_COL = 3
@@ -333,17 +348,13 @@ if args.mtpt:
 	for l in loci:
 		ids=l.fields[3]
 		ids=ids.split(',')
+		#remove duplicate loci from the inverted repeat region, retain only one per species
+		ids=dedup_pt_ids(ids)
 		#If too few plastid hits for this loci (unlikely because plastid synteny is well conserved across order), skip. In practice, I found a lot of these were ancestral mt transfers.
-		if len(ids)<3:
+		if len(ids)<11:
 			order=order+1
 			continue
 		out=open(output_dir+'/'+sp+'.mtpt.'+str(order)+'.fas','w')
-		#write query
-		q_rec_out = q_recs[l.chrom][(l.start-1):l.end]
-		q_rec_out.id = "query|" + q_rec_out.id
-		q_rec_out.description = ""
-		d = SeqIO.write(q_rec_out, out, 'fasta')
-		#d=SeqIO.write(q_recs[l.split()[0]][(int(l.split()[1])-1):int(l.split()[2])],out,'fasta')
 		#write target
 		#if too many blast hits, only retain the top 200 hits to save computational time. I also notice the IR region was included twice for a single species. Thus only one best hit will be selected from each species.
 		hit_num = 200
@@ -358,6 +369,14 @@ if args.mtpt:
 			try:d=out.write('>'+id2fam[id.split('.')[0]]+'|'+id2sp[id.split('.')[0]]+'|'+id+'_'+str(start)+'_'+str(end)+'\n')
 			except KeyError:d=out.write('>'+id+'_'+str(start)+'_'+str(end)+'\n')
 			d=out.write(str(ref_recs[id].seq[start-1:end])+'\n')
+		#write query
+		start=min([int(seq_loc[i].split()[1]) for i in ids])-1
+		end=max([int(seq_loc[i].split()[2]) for i in ids])
+		q_rec_out = q_recs[l.chrom][start:end]
+		q_rec_out.id = "query|" + q_rec_out.id
+		q_rec_out.description = ""
+		d = SeqIO.write(q_rec_out, out, 'fasta')
+		#d=SeqIO.write(q_recs[l.split()[0]][(int(l.split()[1])-1):int(l.split()[2])],out,'fasta')
 		out.close()
 		retained_order.append(order)
 		order=order+1
