@@ -19,9 +19,11 @@ try:
     import pybedtools
     from numpy import median
     from statistics import mode
+    import statistics as stats
     import pandas as pd
     
     # Import standard modules after the checks are passed
+    import subprocess
     import os, argparse
     import datetime
     import warnings
@@ -38,30 +40,28 @@ except ImportError as e:
     sys.exit(1) # Exit the script with an error code
 
 
-parser = argparse.ArgumentParser(description='HGTscanner is a tool to identify HGT blocks in organellar genomes.')
-parser.add_argument('-q', metavar='query', help='Fasta file of the query genome', required=True)
+parser = argparse.ArgumentParser(description='HGTscanner dentifies HGT blocks in organellar genomes.')
+parser.add_argument('-m', metavar='mode', help='Choose from: mtpt, mtpt_eval, mt, mt_eval', required=True)
 parser.add_argument('-o', metavar='output_prefix', help='Output prefix', required=True)
-parser.add_argument('-f', metavar='family', help='Family of the query for HGT classification', required=True)
-parser.add_argument('-mtpt', action='store_true', help='Invoking the MTPT mode')
+parser.add_argument('-taxon', metavar='taxon_file', help='A file containing the family of the query and a list of its close relatives for HGT classification', required=True)
+parser.add_argument('-q', metavar='query', help='Fasta file of the query genome')
 parser.add_argument('-pt_fix_id', metavar='id_file', help='A file of user-selected GenBank accession numbers for MTPT detection.')
 parser.add_argument('-pt_add_seq', metavar='fatsa', help='A fasta file containing plastid references for MTPT detection.')
 parser.add_argument('-pt_add_id', metavar='id_file', help='A file user-selected GenBank accession numbers for MTPT detection.')
 parser.add_argument('-hit', metavar='integer', help='Number of best blast hits to be included.')
 parser.add_argument('-mt_add_seq', metavar='fasta', help='A fasta file containing mitochondrial references for mt HGT detection.')
+parser.add_argument('-wd', metavar='dir', help='Path to working dir where *.sum.tsv and *_HGTscanner_supporting_files are located.')
 parser.add_argument('-b', metavar='bed_file', help='A bed file for regions to be masked')
 parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
+parser.add_argument('-nofasttree', action='store_true', help='No FastTree phylogeny inference')
 
 ####################################
-#I. pass argument values, check required arguments
+#I. pass argument values, check required arguments and input file format
 ################################
 
 args = parser.parse_args()
 script_path = os.path.abspath(sys.argv[0])
 script_path = os.path.dirname(script_path)
-
-#set family for the focal clade
-if args.f:
-	fam = args.f
 
 def id2seq(ids,output_file):
 	recs=SeqIO.parse(script_path+'/database/Viridiplantae_pt_aug2025.genome.fas','fasta')
@@ -71,13 +71,28 @@ def id2seq(ids,output_file):
 		if id.split('.')[0] in ids:d=SeqIO.write(rec,out,'fasta')
 		out.close()
 
-if args.mtpt:
+if args.m =='mtpt':
 	#mtpt mode
 	#assemble the plastid dataset for MTPT
 	try:
 		sp=args.o
 		query=args.q
 		print(str(datetime.datetime.now())+'\tDetecting MTPT in '+sp+' using the query sequence '+query)
+		print(str(datetime.datetime.now())+'\tChecking taxonomy file...')
+		taxon = open(args.taxon).readlines()
+		ingroup=[]
+		fam=''
+		for l in taxon:
+			try:
+				ingroup.append(l.split()[0])
+				if l.split()[1].lower() == 'query':fam=l.split()[0]
+			except IndexError:
+				print(str(datetime.datetime.now())+'\tMalformatted taxonomy file. Please double check. Exit...')
+				sys.exit()
+		if fam=='':
+			sys.exit(str(datetime.datetime.now())+'\tQuery family not set. Exit...')
+		print(f"{datetime.datetime.now()}\tTaxonomy file looks OK")
+		print(f"{datetime.datetime.now()}\tThe query belongs to family: {fam}; The following are close relatives: {', '.join(ingroup)}")
 		if args.pt_fix_id:
 			#Use custom list of pt db
 			id_list=open(args.pt_fix_id)
@@ -90,9 +105,16 @@ if args.mtpt:
 				#add custom plastid sequences to database
 				pt_reference = args.pt_add_seq
 				print(str(datetime.datetime.now())+'\tAdd custom plastid fasta '+pt_reference+' in addition to the NCBI Viridiplantae plastid database')
-				S='cat '+pt_reference+' '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas >'+sp+'.pt_db.fas'
-				os.system(S)
-				add_seq=1
+				print(str(datetime.datetime.now())+'\tChecking file formats for '+pt_reference)
+				#check header of the input seq
+				headers=open(pt_reference).readlines()
+				headers=[i[1:] for i in headers if i.startswith('>')]
+				if all(i.count("|") == 2 for i in headers):
+					S='cat '+pt_reference+' '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas >'+sp+'.pt_db.fas'
+					os.system(S)
+					add_seq=1
+				else:
+					sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+pt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
 			if args.pt_add_id:
 				add_seq=1
 				print(str(datetime.datetime.now())+'\tAdd custom list of plastid based on '+args.pt_add_id+' in addition to the NCBI Viridiplantae plastid database')
@@ -106,20 +128,74 @@ if args.mtpt:
 		print('############################################################\n\
 #ERROR:Insufficient arguments!\n\
 Usage:\n\
-python HGTScanner.py -mtpt -q <query sequence> -o <output prefix> -f <family> [optional] -e <e value> -pt_add_seq <fasta> -pt_add_id <list of id file> -pt_fix_id <list of id file>')
-	except IOError as e:print(e.errno)
-else:
+python HGTScanner.py -m mtpt -q <query sequence> -o <output prefix> -taxon <file> [optional] -e <e value> -pt_add_seq <fasta> -pt_add_id <list of id file> -pt_fix_id <list of id file>')
+	except Exception as e:
+		print(f"Error: {type(e).__name__} - {e}")
+		sys.exit()
+elif args.m == 'mtpt_eval':
+	try:
+		sp=args.o
+		print(str(datetime.datetime.now())+'\tClassify MTPT for '+sp)
+		print(str(datetime.datetime.now())+'\tChecking taxonomy file...')
+		taxon = open(args.taxon).readlines()
+		ingroup=[]
+		fam=''
+		for l in taxon:
+			try:
+				ingroup.append(l.split()[0])
+				if l.split()[1].lower() == 'query':fam=l.split()[0]
+			except IndexError:
+				print(str(datetime.datetime.now())+'\tMalformatted taxonomy file. Please double check. Exit...')
+				sys.exit()
+		if fam=='':
+			sys.exit(str(datetime.datetime.now())+'\tQuery family not set. Exit...')
+		print(f"{datetime.datetime.now()}\tTaxonomy file looks OK")
+		print(f"{datetime.datetime.now()}\tThe query belongs to family: {fam}; The following are close relatives: {', '.join(ingroup)}")
+		sum_path=args.wd
+		if not (os.path.isfile(f"{sum_path}/{sp}.mtpt.sum.tsv") and os.path.isdir(f"{sum_path}/{sp}_HGTscanner_supporting_files")):
+			sys.exit(str(datetime.datetime.now())+f"\tNo {sp}.mtpt.sum.tsv or {sp}_HGTscanner_supporting_files found in {sum_path}. Exit...")
+	except TypeError:
+		print('############################################################\n\
+#ERROR:Insufficient arguments!\n\
+Usage:\n\
+python HGTScanner.py -m mtpt_eval -o <output prefix> -wd <dir> -taxon <file>')
+	except Exception as e:
+		print(f"Error: {type(e).__name__} - {e}")
+		sys.exit()
+elif args.m == 'mt':
 	#default mode for mtHGT
 	try:
 		query=args.q
 		sp=args.o
 		print(str(datetime.datetime.now())+'\tDetecting HGT in '+sp+' using the query sequence '+query)
+		print(str(datetime.datetime.now())+'\tChecking taxonomy file...')
+		taxon = open(args.taxon).readlines()
+		ingroup=[]
+		fam=''
+		for l in taxon:
+			try:
+				ingroup.append(l.split()[0])
+				if l.split()[1].lower() == 'query':fam=l.split()[0]
+			except IndexError:
+				print(str(datetime.datetime.now())+'\tMalformatted taxonomy file. Please double check. Exit...')
+				sys.exit()
+		if fam=='':
+			sys.exit(str(datetime.datetime.now())+'\tQuery family not set. Exit...')
+		print(f"{datetime.datetime.now()}\tTaxonomy file looks OK")
+		print(f"{datetime.datetime.now()}\tThe query belongs to family: {fam}; The following are close relatives: {', '.join(ingroup)}")
 		if args.mt_add_seq:
 			#add custom references to database
 			mt_reference = args.mt_add_seq
 			print(str(datetime.datetime.now())+'\tAdded custom mitochondrial reference '+mt_reference+' to the NCBI Viridiplantae mitochondrial database')
-			S='cat '+mt_reference+' '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas >'+sp+'.mt_db.fas'
-			os.system(S)
+			print(str(datetime.datetime.now())+'\tChecking file formats for '+mt_reference)
+			#check header of the input seq
+			headers=open(mt_reference).readlines()
+			headers=[i[1:] for i in headers if i.startswith('>')]
+			if all(i.count("|") == 2 for i in headers):
+				S='cat '+mt_reference+' '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas >'+sp+'.mt_db.fas'
+				os.system(S)
+			else:
+				sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+pt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
 		else:
 			S='cp '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas '+sp+'.mt_db.fas'
 			os.system(S)
@@ -128,8 +204,10 @@ else:
 		print('############################################################\n\
 #ERROR:Insufficient arguments!\n\
 Usage:\n\
-python HGTScanner.py -q <query sequence> -o <output prefix> -f <family> [optional] -mt_add_seq <reference fasta> -e <e value> -b <bed file for masking>')
-	except IOError as e:print(e.errno)
+python HGTScanner.py -m mt -q <query sequence> -o <output prefix> -f <family> [optional] -mt_add_seq <reference fasta> -e <e value> -b <bed file for masking>')
+	except Exception as e:
+		print(f"Error: {type(e).__name__} - {e}")
+		sys.exit()
 
 	
 ################################
@@ -293,11 +371,82 @@ def find_intersect_bed(bedA,bedB):
 	unique_lines = list(dict.fromkeys(map(str, combined)))
 	intersect_unique_bed = pybedtools.BedTool('\n'.join(unique_lines), from_string=True)
 	return(intersect_unique_bed)
-	
+
+def ncbi_ref_root(tree,reference_phylo):
+	all_family=[node.name for node in tree]
+	all_family = [i.split('|')[0] for i in all_family if not i.startswith('query')]
+	all_family=list(set(all_family))
+	query_tip = [node.name for node in tree if node.name.startswith('query')]
+	reference_family=[node.name for node in reference_phylo]
+	overlapping_fam=[i for i in all_family if i in reference_family]
+	if len(overlapping_fam)<2:
+		tree.set_outgroup(tree.get_midpoint_outgroup())
+		return(tree)
+	reference_phylo.prune(overlapping_fam)
+	best_root=[]
+	best_root_fam_num=1000
+	for child in reference_phylo.children:
+		if len(child.get_leaves())<best_root_fam_num:
+			best_root=[node.name for node in child]
+			best_root_fam_num = len(child.get_leaves())
+	#if all members of best_root form a clade, root with all of them
+	best_root_all_tips = [node.name for node in tree if node.name.split('|')[0] in best_root]
+	if len(best_root_all_tips) == 1:
+		tree.set_outgroup(tree&best_root_all_tips[0])
+		return(tree)
+	elif tree.check_monophyly(values=best_root_all_tips, target_attr="name")[0]:
+		tree.set_outgroup(tree.get_common_ancestor(best_root_all_tips))
+		return(tree)
+	#else, root with one of the best_root family
+	else:
+		mono=0
+		for one_family in best_root:
+			best_root_fam_tips = [node.name for node in tree if node.name.split('|')[0] == one_family]
+			if len(best_root_fam_tips)==1:
+				tree.set_outgroup(tree&best_root_fam_tips[0])
+				mono=1
+				return(tree)
+			else:
+				#this is a node
+				if tree.check_monophyly(values=best_root_fam_tips, target_attr="name")[0]:
+					tree.set_outgroup(tree.get_common_ancestor(best_root_fam_tips))
+					mono=1
+					return(tree)
+				elif tree.check_monophyly(values=best_root_fam_tips+query_tip, target_attr="name")[0]:
+					#query nested within this family, set them together as outgroup
+					tree.set_outgroup(tree.get_common_ancestor(best_root_fam_tips+query_tip))
+					mono=1
+					return(tree)
+		if mono ==0:
+			tree.set_outgroup(tree.get_midpoint_outgroup())
+			return(tree)
+
+def family_level_support(query,sister_fam,tree):
+	q_branch=tree&query
+	best_support=q_branch.get_ancestors()[0].support
+	for node in q_branch.get_ancestors():
+		new_sis_node = node.get_sisters()[0]
+		try:
+			new_sis_fam = [nd.name for nd in new_sis_node]
+		except IndexError:
+			#hitting root
+			break
+		new_sis_fam = list(set([i.split('|')[0] for i in new_sis_fam]))
+		try:new_sis_fam.remove('NA')
+		except:pass
+		if new_sis_fam==[sister_fam]:
+			curr_support=node.get_ancestors()[0].support
+			if curr_support>best_support:best_support=curr_support
+		else:
+			#accomodate rare mix-in of other families
+			break
+	return(best_support)
+
+
 ####################################
 #III. MTPT mode
 ###################################
-if args.mtpt:
+if args.m =='mtpt':
 	#blast
 	if args.e:evalue=args.e
 	else:evalue=1e-40
@@ -305,7 +454,7 @@ if args.mtpt:
 	#make the query sequence as the database otherwise many potential hits from the Viridiplantae get ignored by blastn if the other way around
 	os.system(f"makeblastdb -in {query} -out {sp}.mtpt -dbtype nucl >/dev/null")
 	S='blastn -task dc-megablast -query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
-	os.system(S)
+	#os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#add taxon information to blast hit
 	out=open(sp+'.mtpt.blast.taxon','w')
@@ -343,7 +492,7 @@ if args.mtpt:
 	order=1
 	retained_order=[]
 	sum_out=open(sp+'.mtpt.sum.tsv','w')
-	sum_out.write('ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tDonor_family\tDonor_genus\tDonor_species\tUFBP\n')
+	sum_out.write('Locus_ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tUFBP\tSister_family\tSister_genus\tSister_species\n')
 	output_dir = sp+'_HGTscanner_supporting_files'
 	if not os.path.isdir(output_dir):os.mkdir(output_dir)
 	for l in loci:
@@ -383,61 +532,162 @@ if args.mtpt:
 		retained_order.append(order)
 		order=order+1
 	sum_out.close()
-	print(str(datetime.datetime.now())+'\tExatracted '+ str(order-1)+' potential MTPT sequences for '+sp)
+	print(str(datetime.datetime.now())+'\tFound '+ str(len(retained_order))+' potential MTPT sequences for '+sp+' from the original '+str(order-1)+' loci showing plastid seq homology')
 	#alignment and phylogenetic reconstruction
-	print(str(datetime.datetime.now())+'\tStart alignment for '+str(len(retained_order))+' loci with more than 3 taxa. May take a while...')
+	if args.nofasttree:
+		print(str(datetime.datetime.now())+'\tStart alignment for '+str(len(retained_order))+' loci with more than 10 taxa. May take a while...')
+	else:
+		print(str(datetime.datetime.now())+'\tStart alignment and phylogeny for '+str(len(retained_order))+' loci with more than 10 taxa. May take a while...')
 	for i in retained_order:
 		print(f"{str(datetime.datetime.now())}\tAnalyzing Loci #{i}", end='\r')
 		#S="nohup mafft --quiet --adjustdirection "+output_dir+"/"+sp+".temp."+str(i)+".fas | sed 's/_R_//g' > "+output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas > /dev/null 2>&1 &"
 		S="mafft --quiet --adjustdirection "+output_dir+"/"+sp+".mtpt."+str(i)+".fas | sed 's/_R_//g' > "+output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas"
-		#print(S)
 		os.system(S)
-		#b=SeqIO.index(output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas",'fasta')
-		#q=loci[i-1].split()[0]
-		#if len(b[q].seq)<10000:
-		#	S="nohup iqtree -B 1000 -T 2 --quiet -redo -s "+output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas >/dev/null 2>&1"
-		#	os.system(S)
-		#else:print(str(datetime.datetime.now())+'\tLoci #'+str(i)+' is longer than 10kb. Skip tree building. Check manually.')
-	print(str(datetime.datetime.now())+'\tAlignment complete')
+		if args.nofasttree:
+			continue
+		else:
+			S=f"FastTree -quiet -nt {output_dir}/{sp}.mtpt.{i}.aln.fas >{output_dir}/{sp}.mtpt.{i}.aln.fas.treefile"
+			subprocess.run(S, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+	if args.nofasttree:
+		print(str(datetime.datetime.now())+'\tAlignment complete')
+		print(str(datetime.datetime.now())+'\tCleaning intermediate files')
+		os.system(f"rm {sp}.mtpt.n*")
+		os.system(f"rm {sp}.pt_db.fas")
+		sys.exit(str(datetime.datetime.now())+'\tYou have chosen to complete phylogeny separately. Exit...')
+	print(str(datetime.datetime.now())+'\tAlignment and FastTree phylogeny complete')
 	print(str(datetime.datetime.now())+'\tCleaning intermediate files')
 	os.system(f"rm {sp}.mtpt.n*")
-	os.system('rm '+output_dir+"/"+sp+'*.bionj')
-	os.system('rm '+output_dir+"/"+sp+'*.gz')
-	os.system('rm '+output_dir+"/"+sp+'*.log')
-	os.system('rm '+output_dir+"/"+sp+'*.iqtree')
-	os.system('rm '+output_dir+"/"+sp+'*.mldist')
-	os.system('rm '+output_dir+"/"+sp+'*.phy')
-	os.system('rm '+output_dir+"/"+sp+'*.contree')
-	os.system('rm '+output_dir+"/"+sp+'*.nex')
-	##############
-	#Evaluate the source of the region and output summary file
-	for i in retained_order:
-		q=loci[i-1].split()[0]
-		outgroup=[]
+	os.system(f"rm {sp}.pt_db.fas")
+	#######################################
+	#classification based on the fasttree phylogeny
+	current_time = datetime.datetime.now()
+	print(f"{current_time}\tReading and processing phylogenies from {len(retained_order)} loci in {sp}.mtpt.sum.tsv")
+	sum_txt=open(sp+'.mtpt.sum.tsv').readlines()
+	new_sum_txt = []
+	new_sum_txt.append(sum_txt[0])
+	for line in sum_txt[1:]:
+		id=line.split()[0]
+		q='query|'+line.split()[1]
 		try:
-			t=Tree(output_dir+"/"+sp+'.mtpt.'+str(i)+'.aln.fas.treefile')
+			t=Tree(output_dir+"/"+sp+'.mtpt.'+id+'.aln.fas.treefile')
 			#check branch length of query first, if too long, certainly an ancestral mt transfer and not a young mtpt
-			ancestor=t.get_midpoint_outgroup()
-			t.set_outgroup(ancestor)
 			q_branch=t&q
-			if q_branch.dist>1:
-				out.write(str(i)+'\t'+loci[i-1].split()[0]+'\t'+loci[i-1].split()[1]+'\t'+loci[i-1].split()[2]+'\tNA\tNA\n')
-			if q_branch.get_ancestors()[0].is_root():
-				pass#handle root
-			sisters=[leaf.name for leaf in q_branch.get_sisters()[0]]
-			out.write(str(i)+'\t'+loci[i-1].split()[0]+'\t'+loci[i-1].split()[1]+'\t'+loci[i-1].split()[2]+'\t'+','.join(sisters)+'\t'+loci[i-1].split()[3]+'\n')
+			branch_lengths = [node.dist for node in t.traverse() if not node.is_root()]
+			z_score = abs(q_branch.dist - stats.mean(branch_lengths)) / stats.stdev(branch_lengths)
+			#print(id, z_score, q_branch.dist)
+			if q_branch.dist>0.15 and z_score >10:
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer\tNA\tNA\tNA\tNA\n")
+				continue
+			#now these look like true mtpt
+			#Rooting based on the ncbi common taxonomy
+			ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
+			t=ncbi_ref_root(t,ncbi_tree)
+			#print(t.write())
+			q_branch=t&q
+			sister_nd = q_branch.get_sisters()[0]
+			sister_tips=[leaf.name for leaf in sister_nd]
+			sister_family = list(set([i.split('|')[0] for i in sister_tips]))
+			try:sister_family.remove('NA')
+			except ValueError:pass
+			sister_genera=[]
+			for i in sister_tips:
+				try:
+					genus=i.split('|')[1]
+					genus=genus.split('_')[0]
+					sister_genera.append(genus)
+				except IndexError:
+					sister_genera.append(i.split('_')[0])
+			sister_genera = list(set([i.split('_')[0] for i in sister_genera]))
+			raw_support = q_branch.get_ancestors()[0].support
+			if all(i in ingroup for i in sister_family):
+				#native MTPT
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tnative MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+			elif len([i for i in sister_family if i in ingroup])==0:
+				#alien MTPT
+				if len(sister_family)==1:
+					fam_support = family_level_support(q,sister_family[0],t)
+				else:
+					fam_support = raw_support
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\talien MTPT\t{fam_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+			else:
+				#inconclusive
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 		except ete3.parser.newick.NewickError:
-			sisters=open(output_dir+"/"+sp+'.mtpt.'+str(i)+".fas").readlines()
-			sisters=[i[1:].strip() for i in sisters if (i.startswith('>')) and (not i[1:].strip()==q)]
-			out.write(str(i)+'\t'+loci[i-1].split()[0]+'\t'+loci[i-1].split()[1]+'\t'+loci[i-1].split()[2]+'\t'+'ALL HITS: '+','.join(sisters)+'\t'+loci[i-1].split()[3]+'\n')
+			new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tTree not found\tNA\tNA\tNA\tNA\n")
+	#update the summary file
+	#sum_out = open(sp+'.mtpt.sum.tsv','w')
+	#d=sum_out.write(''.join(new_sum_txt))
+	print(''.join(new_sum_txt))
+	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.hgt.sum.tsv')
 	
-	#organizing files
-	os.system('rm '+sp+'.pt_db.fas')
+##################
+elif args.m =='mtpt_eval':
+	#Evaluate the source of the region and update the summary file
+	current_time = datetime.datetime.now()
+	sum_txt = open(f"{args.wd}/{sp}.mtpt.sum.tsv").readlines()
+	print(f"{current_time}\tReading and processing phylogenies from {len(sum_txt)-1} loci in {args.wd}/{sp}.mtpt.sum.tsv")
+	output_dir = f"{args.wd}/{sp}_HGTscanner_supporting_files"
+	new_sum_txt = []
+	new_sum_txt.append(sum_txt[0])
+	for line in sum_txt[1:]:
+		id=line.split()[0]
+		print(id)
+		q='query|'+line.split()[1]
+		try:
+			t=Tree(output_dir+"/"+sp+'.mtpt.'+id+'.aln.fas.treefile')
+			#check branch length of query first, if too long, certainly an ancestral mt transfer and not a young mtpt
+			q_branch=t&q
+			branch_lengths = [node.dist for node in t.traverse() if not node.is_root()]
+			z_score = abs(q_branch.dist - stats.mean(branch_lengths)) / stats.stdev(branch_lengths)
+			#print(id, z_score, q_branch.dist)
+			if q_branch.dist>0.15 and z_score >10:
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer\tNA\tNA\tNA\tNA\n")
+				continue
+			#now these look like true mtpt
+			#Rooting based on the ncbi common taxonomy
+			ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
+			t=ncbi_ref_root(t,ncbi_tree)
+			#print(t.write())
+			q_branch=t&q
+			sister_nd = q_branch.get_sisters()[0]
+			sister_tips=[leaf.name for leaf in sister_nd]
+			sister_family = list(set([i.split('|')[0] for i in sister_tips]))
+			try:sister_family.remove('NA')
+			except ValueError:pass
+			sister_genera=[]
+			for i in sister_tips:
+				try:
+					genus=i.split('|')[1]
+					genus=genus.split('_')[0]
+					sister_genera.append(genus)
+				except IndexError:
+					sister_genera.append(i.split('_')[0])
+			sister_genera = list(set([i.split('_')[0] for i in sister_genera]))
+			raw_support = q_branch.get_ancestors()[0].support
+			if all(i in ingroup for i in sister_family):
+				#native MTPT
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tnative MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+			elif len([i for i in sister_family if i in ingroup])==0:
+				#alien MTPT
+				if len(sister_family)==1:
+					fam_support = family_level_support(q,sister_family[0],t)
+				else:
+					fam_support = raw_support
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\talien MTPT\t{fam_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+			else:
+				#inconclusive
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+		except ete3.parser.newick.NewickError:
+			new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tTree not found\tNA\tNA\tNA\tNA\n")
+	#update the summary file
+	#sum_out = open(sp+'.mtpt.sum.tsv','w')
+	#d=sum_out.write(''.join(new_sum_txt))
+	print(''.join(new_sum_txt))
 	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.hgt.sum.tsv')
 
 #####################################
-#IV. Default mode for HGT detection
-else:
+#IV. Default mode for HGT detection in mito
+elif args.m == 'mt':
 	if args.b:
 		mask_bed=args.b
 		print(str(datetime.datetime.now())+'\tMasking query sequence '+query+' using the bed file: '+args.b)
@@ -617,6 +867,9 @@ else:
 		os.system(f"mafft --quiet --adjustdirection --6merpair --addfragments {temp2} {temp1} | sed 's/_R_//g' > {aln_out}")
 		os.remove(temp1)
 		os.remove(temp2)
+		records = list(SeqIO.parse(aln_out, "fasta"))
+		records = records[1:] + [records[0]]
+		SeqIO.write(records, aln_out, "fasta")
 	print(str(datetime.datetime.now())+'\tCompleted alignment. See sequence file in '+sp+'_HGTscanner_supporting_files')
 	#############
 	#alignment and phylogenetic reconstruction
