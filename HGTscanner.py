@@ -421,26 +421,85 @@ def ncbi_ref_root(tree,reference_phylo):
 			tree.set_outgroup(tree.get_midpoint_outgroup())
 			return(tree)
 
-def family_level_support(query,sister_fam,tree):
+def max_clade_support(query,tip_collection,tree):
 	q_branch=tree&query
 	best_support=q_branch.get_ancestors()[0].support
-	for node in q_branch.get_ancestors():
-		new_sis_node = node.get_sisters()[0]
-		try:
-			new_sis_fam = [nd.name for nd in new_sis_node]
-		except IndexError:
-			#hitting root
+	for nd in tree:
+		if nd.name in tip_collection:
+			nd.add_features(type="ingroup")
+	for nd in tree.get_monophyletic(values=["ingroup"], target_attr="type"):
+		if any(leaf.name.startswith('query|') for leaf in nd.get_leaves()):
+			q_clade = nd
+			if nd.support >best_support:
+				best_support = nd.support
 			break
-		new_sis_fam = list(set([i.split('|')[0] for i in new_sis_fam]))
-		try:new_sis_fam.remove('NA')
-		except:pass
-		if new_sis_fam==[sister_fam]:
-			curr_support=node.get_ancestors()[0].support
-			if curr_support>best_support:best_support=curr_support
-		else:
-			#accomodate rare mix-in of other families
-			break
+	for child in q_clade.traverse('preorder'):
+		if any(leaf.name.startswith('query|') for leaf in child.get_leaves()):
+			if child.support >best_support and (not child.is_leaf()):
+				best_support = child.support
 	return(best_support)
+
+# Function to find the largest continuous block in a list around a specific element based on its name
+#takes in a list of true or false value indicating where the element is a member of the group of interest
+def find_max_block_around_element(lst, element_start, element_end, max_diff_count):
+	diff_count = 0
+	first_ingroup = element_start
+	last_ingroup = element_end
+	ingroup_id=[]
+	#extend on the left side
+	for i in range(max(element_start-1,0),-1,-1):
+		if lst[i]:  # When same as the target taxon rank
+			#current_start = max(0, current_start - 1)  # Start searching from one element before
+			diff_count=0
+			first_ingroup=i
+			ingroup_id.append(i)
+		else:
+			if diff_count>= max_diff_count:break
+			diff_count += 1
+	#extend on the right side
+	for i in range(min(element_end+1,len(lst)),len(lst)):
+		if lst[i]:  # When same as the target taxon rank
+			#current_end = min(len(lst), current_end+1)  # Start searching from one element before
+			diff_count=0
+			last_ingroup=i
+			ingroup_id.append(i)
+		else:
+			if diff_count>= max_diff_count:break
+			diff_count += 1
+	return(first_ingroup, last_ingroup, list(set(ingroup_id)))
+
+#take a tree and return true or false for VGT based on tip orders, this is a generous way to classify VGT and better accommodates topology error in a phylo tree
+def VGTFromTipOrder(tree,query_family):
+	tips=[node.name for node in tree]
+	allfamilies=[]
+	taxon_type=[]
+	for j in tips:
+		if j.startswith('query|'):
+			allfamilies.append((j,query_family))
+			taxon_type.append(1)
+		else:
+			allfamilies.append((j,j.split('|')[0]))
+			if j.split('|')[0] in ingroup:taxon_type.append(1)
+			else:taxon_type.append(0)
+	max_different_names = 1  # Maximum number of different names allowed
+	element_index = next(index for index, (name, _) in enumerate(allfamilies) if name.startswith('query|'))
+	binary_classification = [1 if x.split('|')[0] == query_family else 0 for x in tips]
+	binary_classification[element_index] = 1
+	q_family_start,q_family_end,q_family_index=find_max_block_around_element(binary_classification, element_index, element_index, max_different_names)
+	q_family_tip = [tips[j] for j in q_family_index]
+	q_genera=[j.split('|')[1] for j in q_family_tip]
+	q_genera=set([j.split('_')[0] for j in q_genera])
+	#if this family cluster contains more than five genera, this is most likely a VGT
+	if len(q_genera)>4:
+		return(1)
+	#check if this cluster is nested within a larger Lamiales cluster
+	else:
+		output=0
+		if q_family_start!=0:
+			if taxon_type[q_family_start-1]==1:output=1
+		if q_family_end!=(len(tips)-1):
+			if taxon_type[q_family_end+1]==1:output=1
+		return(output)	
 
 
 ####################################
@@ -454,7 +513,7 @@ if args.m =='mtpt':
 	#make the query sequence as the database otherwise many potential hits from the Viridiplantae get ignored by blastn if the other way around
 	os.system(f"makeblastdb -in {query} -out {sp}.mtpt -dbtype nucl >/dev/null")
 	S='blastn -task dc-megablast -query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
-	#os.system(S)
+	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#add taxon information to blast hit
 	out=open(sp+'.mtpt.blast.taxon','w')
@@ -475,7 +534,7 @@ if args.m =='mtpt':
 			if '|' in l.split()[0]:d=out.write(l.strip()+'\t'+l.split('|')[1]+'\t'+l.split('|')[0]+'\n')
 			else:d=out.write(l.strip()+'\t'+l.split()[0]+'\tNA\n')
 	out.close()
-	#sort blast results and give each row an uniq id
+	#sort blast results and give each row an unique id
 	S="awk -v OFS='\\t' '{if ($9 <= $10) print $2, $9, $10, $1, $7, $8, $12, $11, $13, $14; else print $2, $10, $9, $1, $8, $7, $12, $11, $13, $14}' "+sp+".mtpt.blast.taxon| sort -k1,1 -k2,2n -k4,4n -k8,8g | awk -v FS='\\t' -v OFS='\\t' '{print $0, NR}' > "+sp+".mtpt.bed"
 	os.system(S)
 	os.system(f"rm {sp}.mtpt.blast.taxon")
@@ -492,9 +551,10 @@ if args.m =='mtpt':
 	order=1
 	retained_order=[]
 	sum_out=open(sp+'.mtpt.sum.tsv','w')
-	sum_out.write('Locus_ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tUFBP\tSister_family\tSister_genus\tSister_species\n')
+	sum_out.write('Locus_ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tSupport\tSister_family\tSister_genus\tSister_species\n')
 	output_dir = sp+'_HGTscanner_supporting_files'
 	if not os.path.isdir(output_dir):os.mkdir(output_dir)
+	order = 1
 	for l in loci:
 		ids=l.fields[3]
 		ids=ids.split(',')
@@ -583,6 +643,7 @@ if args.m =='mtpt':
 			ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
 			t=ncbi_ref_root(t,ncbi_tree)
 			#print(t.write())
+			#Check sister clade of the quqery
 			q_branch=t&q
 			sister_nd = q_branch.get_sisters()[0]
 			sister_tips=[leaf.name for leaf in sister_nd]
@@ -599,18 +660,46 @@ if args.m =='mtpt':
 					sister_genera.append(i.split('_')[0])
 			sister_genera = list(set([i.split('_')[0] for i in sister_genera]))
 			raw_support = q_branch.get_ancestors()[0].support
+			#Check the neighbors of (query+sister)
+			alltips=[j.name for j in t]
+			qs_index = [j for j, name in enumerate(alltips) if name in [q] + sister_tips]
+			ingroup_binary = [1 if j.split('|')[0] in ingroup else 0 for j in alltips]
+			ingroup_start,ingroup_end,ingroup_index=find_max_block_around_element(ingroup_binary, min(qs_index), max(qs_index), max_diff_count=1)
+			nested_in_ingroup = 0
+			if ingroup_start<min(qs_index) and ingroup_end>max(qs_index):nested_in_ingroup = 1
 			if all(i in ingroup for i in sister_family):
-				#native MTPT
+				#native MTPT: sister clade is ingroup
 				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tnative MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 			elif len([i for i in sister_family if i in ingroup])==0:
-				#alien MTPT
-				if len(sister_family)==1:
-					fam_support = family_level_support(q,sister_family[0],t)
+				#sister clade is outgroup
+				if nested_in_ingroup == 1:
+					#but nested within ingroup: inconclusive
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 				else:
-					fam_support = raw_support
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\talien MTPT\t{fam_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+					#do not nest within ingroups
+					if len(sister_family)==1:
+						#check the neighbor of the q+sister
+						donor_fam_binary = [1 if j.split('|')[0] in sister_family else 0 for j in alltips]
+						donor_fam_start,donor_fam_end,donor_fam_index=find_max_block_around_element(donor_fam_binary, min(qs_index), max(qs_index), max_diff_count=1)
+						nested_in_donor_fam = 0
+						if donor_fam_start<min(qs_index) or donor_fam_end>max(qs_index):nested_in_donor_fam = 1
+						if nested_in_donor_fam:
+							#alien MTPT: a single donor family is involved and the q+sister nest within other species of the same donor family
+							if donor_fam_end==len(alltips):donor_fam_tips = alltips[donor_fam_start:]
+							else:donor_fam_tips = alltips[donor_fam_start:donor_fam_end+1]
+							fam_support = max_clade_support(q,donor_fam_tips,t)
+							new_sum_txt.append('\t'.join(line.split()[0:4])+f"\thigh confidence alien MTPT\t{fam_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+						else:
+							#does not nest with other species of the same family: putative alien MTPT
+							new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tputative alien MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+					elif len(sister_family)<6:
+						#putative alien MTPT: no more than five donor family is involved
+						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tputative alien MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+					else:
+						#ancestral mt transfer: too many donor family involved
+						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 			else:
-				#inconclusive
+				#inconclusive: sister clade is ingroup+outgroup
 				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 		except ete3.parser.newick.NewickError:
 			new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tTree not found\tNA\tNA\tNA\tNA\n")
@@ -686,7 +775,7 @@ elif args.m =='mtpt_eval':
 	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.hgt.sum.tsv')
 
 #####################################
-#IV. Default mode for HGT detection in mito
+#IV. MT mode for HGT detection in mito
 elif args.m == 'mt':
 	if args.b:
 		mask_bed=args.b
@@ -734,7 +823,7 @@ elif args.m == 'mt':
 	otherfam=[]
 	samefam=[]
 	for l in x:
-		if not l.split()[9] in ['Orobanchaceae','Lamiaceae','Scrophulariaceae','Oleaceae','Phrymaceae','Acanthaceae','Verbenaceae','Plantaginaceae','Gesneriaceae','Bignoniaceae','Anacardiaceae']:
+		if not l.split()[9] in ingroup:
 			otherfam.append(l)
 		else:
 			samefam.append(l)
@@ -754,6 +843,7 @@ elif args.m == 'mt':
 	hits=open(sp+'.mt.bed').readlines()
 	seq_loc={}
 	for l in hits:seq_loc[l.split()[-1]]=l
+	if not os.path.isdir(sp+'_HGTscanner_supporting_files'):os.mkdir(sp+'_HGTscanner_supporting_files')
 	for hit in otherfam_merged:
 		#gather overlapping alignment from both other families and close relatives
 		ids=hit.fields[3]
@@ -770,7 +860,7 @@ elif args.m == 'mt':
 			raw_beds=pybedtools.BedTool(''.join(raw_beds_txt), from_string=True)
 			#print(''.join(raw_beds_txt)) #debug purposes
 			for i in seqout_beds[1]:
-				out=open(sp+'.hgt.'+str(order)+'.fas','w')
+				out=open(sp+'_HGTscanner_supporting_files'+'/'+sp+'.hgt.'+str(order)+'.fas','w')
 				subhit=pybedtools.BedTool(i, from_string=True)
 				#filter for region that either covers >70% of the query seq or have >70% of its own length within the target loci
 				new_raw_beds = find_intersect_bed(raw_beds,subhit)
@@ -818,7 +908,7 @@ elif args.m == 'mt':
 				d=mapout.write(hit.chrom+'\t'+str(min_start)+'\t'+str(max_end)+'\t'+sp+'.hgt.'+str(order)+'.fas\n')
 				order=order+1
 		else:
-			out=open(sp+'.hgt.'+str(order)+'.fas','w')
+			out=open(sp+'_HGTscanner_supporting_files'+'/'+sp+'.hgt.'+str(order)+'.fas','w')
 			#write other family
 			write_seq_from_bed_txt(seqout_beds,out)
 			#write query
@@ -845,14 +935,18 @@ elif args.m == 'mt':
 		print(f"{current_time}\tExtracting sequences from homologous genetic block #{num}", end='\r')
 		num=num+1
 	mapout.close()		
-	print(f"{current_time}\tA total of #{order} aligned sequences from #{num-1} merged homologous genetic blocks were extracted.", end='\r')
+	print(f"{current_time}\tA total of #{order-1} aligned sequences from #{num-1} merged homologous genetic blocks were extracted.", end='\r')
 	#organize files
 	os.system('rm '+sp+'.temp*')
 	os.system('rm '+sp+'.mt.n*')
 	os.system('rm '+sp+'.mt_db.fas')
-	if not os.path.isdir(sp+'_HGTscanner_supporting_files'):os.mkdir(sp+'_HGTscanner_supporting_files')
-	os.system('mv '+sp+'.hgt.*.fas '+sp+'_HGTscanner_supporting_files')
-	print(f"{current_time}\tStart alignment for #{order} loci")
+	#os.system('mv '+sp+'.hgt.*.fas '+sp+'_HGTscanner_supporting_files')
+	#############
+	#alignment and phylogenetic reconstruction
+	if args.nofasttree:
+		print(f"{current_time}\tStart alignment for #{order} loci")
+	else:
+		print(f"{current_time}\tStart alignment and FastTree phylogeny for #{order} loci")
 	for i in range(1,order):
 		print(f"{current_time}\tWorking on loci #{i}...", end='\r')
 		#alignment
@@ -870,8 +964,16 @@ elif args.m == 'mt':
 		records = list(SeqIO.parse(aln_out, "fasta"))
 		records = records[1:] + [records[0]]
 		SeqIO.write(records, aln_out, "fasta")
-	print(str(datetime.datetime.now())+'\tCompleted alignment. See sequence file in '+sp+'_HGTscanner_supporting_files')
-	#############
-	#alignment and phylogenetic reconstruction
-	print(str(datetime.datetime.now())+'\tStart alignment and phylogenetic reconstruction with mafft and iqtree for '+str(order-1)+' regions. May take a while...')
+		if args.nofasttree:
+			continue
+		else:
+			S=f"FastTree -quiet -nt {sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas >{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile"
+			subprocess.run(S, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+	if args.nofasttree:
+		print(str(datetime.datetime.now())+'\tCompleted alignment. See sequence file in '+sp+'_HGTscanner_supporting_files')
+		sys.exit(str(datetime.datetime.now())+'\tYou have chosen to complete phylogeny separately. Exit...')
+	else:
+		print(str(datetime.datetime.now())+'\tCompleted alignment and FastTree phylogeny. See sequence and tree file in '+sp+'_HGTscanner_supporting_files')
+	#######################
+	#Classify based on phylogeny
 
