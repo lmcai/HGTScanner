@@ -551,7 +551,7 @@ if args.m =='mtpt':
 	order=1
 	retained_order=[]
 	sum_out=open(sp+'.mtpt.sum.tsv','w')
-	sum_out.write('Locus_ID\tTarget_scaffold\tStart\tEnd\tPhylo_source\tSupport\tSister_family\tSister_genus\tSister_species\n')
+	sum_out.write('Locus_ID\tTarget_scaffold\tStart\tEnd\tPhylo_classification\tSupport\tSister_family\tSister_genus\tSister_species\n')
 	output_dir = sp+'_HGTscanner_supporting_files'
 	if not os.path.isdir(output_dir):os.mkdir(output_dir)
 	order = 1
