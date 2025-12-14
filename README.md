@@ -75,26 +75,29 @@ git clean -f -d
 ### Usage:
 
 ```
-HGTscanner.py		-q query -o output_prefix -f family [-mtpt] 
-					[-pt_fix_id id_file] [-pt_add_seq fatsa] [-pt_add_id id_file] 
-					[-hit number of hits] [-mt_add_seq fasta] [-b bed_file] [-e evalue]
+HGTscanner.py [-h] -m mode -o output_prefix -taxon taxon_file [-q query] [-pt_fix_id id_file]
+              [-pt_add_seq fatsa] [-pt_add_id id_file] [-hit integer] [-mt_add_seq fasta] [-wd dir]
+              [-b bed_file] [-e evalue] [-nofasttree]
 ```
 
 ### Options:
 ```
 options:
-  -h, --help           show this help message and exit
-  -q query             Fasta file of the query genome
-  -o output_prefix     Output prefix
-  -f family            Family of the query for HGT classification
-  -mtpt                Invoking the MTPT mode
-  -pt_fix_id id_file   A file of user-selected GenBank accession numbers for MTPT detection.
-  -pt_add_seq fatsa    A fasta file containing plastid references for MTPT detection.
-  -pt_add_id id_file   A file user-selected GenBank accession numbers for MTPT detection.
-  -hit number		   Number of best blast hits to be included.
-  -mt_add_seq fasta    A fasta file containing mitochondrial references for mt HGT detection.
-  -b bed_file          A bed file for regions to be masked
-  -e evalue            BLAST evalue threshold
+options:
+  -h, --help          show this help message and exit
+  -m mode             Choose from: mtpt, mtpt_eval, mt, mt_eval
+  -o output_prefix    Output prefix
+  -taxon taxon_file   A file containing the family of the query and a list of its close relatives for HGT classification
+  -q query            Fasta file of the query genome
+  -pt_fix_id id_file  A file of user-selected GenBank accession numbers for MTPT detection.
+  -pt_add_seq fatsa   A fasta file containing plastid references for MTPT detection.
+  -pt_add_id id_file  A file user-selected GenBank accession numbers for MTPT detection.
+  -hit integer        Number of best blast hits to be included.
+  -mt_add_seq fasta   A fasta file containing mitochondrial references for mt HGT detection.
+  -wd dir             Path to working dir where *.sum.tsv and *_HGTscanner_supporting_files are located.
+  -b bed_file         A bed file for regions to be masked
+  -e evalue           BLAST evalue threshold
+  -nofasttree         No FastTree phylogeny inference
 ```
 
 ### 1. MTPT detection
@@ -103,14 +106,14 @@ options:
 
 ```
 #Use the default 3722-genera plastid Viridiplantae database
-python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family]
+python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file]
 ```
-The list of species included in our built-in plastid Viridiplantae database can be found [here](/database/pt_Viridiplantae_taxonomy.tsv). One representative species per genus (totalling 3722) has been selected from the entire NCBI plastid reference genome database. Users can add more species from the **built in** database by:
+The list of species included in our built-in plastid Viridiplantae database can be found [here](/database/pt_Viridiplantae_taxonomy.tsv). One representative species per genus (totalling 3722) has been selected from the entire NCBI plastid reference genome database. Users can add more species from the **built-in** database by:
 ```
 #Add species to the default database
-python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_id [more_genbank_id.txt]
+python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt]
 #Use a user-selected Genbank accessions as BLAST database (instead of adding to the default db)
-python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_fix_id [genbank_id.txt]
+python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_fix_id [genbank_id.txt]
 ```
 
 *Output:* 
@@ -129,7 +132,7 @@ The following files will be generated:
 
 *Input:* A fasta-formatted assembly of the query organelle genome. To identify mito HGT, use the following command. Note that the optional bed file for masking gene coding and MTPT regions is optional, but highly recommended to avoid excessive BLAST hits in these loci:
 ```
-python HGTscanner.py -q [query.fas]  -o [output_prefix] -f [query_species_family] -b [bed_file_for_masking]
+python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] [optional] -b [bed_file_for_masking]
 ```
 
 *Output:* 
@@ -138,13 +141,13 @@ The following files will be generated:
 
 ### 3. Adding custom sequences
 
-Users can also add their own plastid (via `-pt_add_seq`) or mitochondrial (via `-mt_add_seq`) sequences to provide more comprehensive taxon sampling. The headers of these sequences need to be formatted as "family|species|[additional_header_string]". **No space (' ') should be included in the header.** This is necessary to use the taxonomy information for HGT detection. Unformatted sequences will not be used in the downstream analysis.
+Users can also add their own plastid (via `-pt_add_seq`) or mitochondrial (via `-mt_add_seq`) sequences to provide more comprehensive taxon sampling. The headers of these sequences need to be formatted as "family|binomial_species|[additional_header_string]". **No space (' ') should be included in the header.** This is necessary to use the taxonomy information for HGT detection. Unformatted sequences will not be used in the downstream analysis.
 
 Example of user-added fasta
 ```
 >Fabaceae|Indigofera_tinctoria|my_seq_ID1
 ATCGATCGATCG
->Geraniaceae|Geranium maculatum|my_seq_ID2
+>Geraniaceae|Geranium_maculatum|my_seq_ID2
 ATCGATCGATCG
 ...
 ```
@@ -153,11 +156,11 @@ Once the sequences are correctly prepared, the users can add them to the databas
 For MTPT:
 ```
 #Add custom sequences
-python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_seq [fasta_file] 
+python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file]] -pt_add_seq [fasta_file] 
 #Add custom sequences and add more sequences from the built-in database
-python HGTscanner.py -mtpt -q [query.fas]  -o [output_prefix] -f [query_species_family] -pt_add_id [more_genbank_id.txt] -pt_add_seq [fasta_file]
+python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt] -pt_add_seq [fasta_file]
 ```
 For mt HGT:
 ```
-python HGTscanner.py -q [query.fas]  -o [output_prefix] -f [query_species_family] -b [bed_file_for_masking] -mt_add_seq [mt.fas]
+python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -mt_add_seq [mt.fas] [optional] -b [bed_file_for_masking] 
 ```
