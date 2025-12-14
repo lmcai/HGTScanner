@@ -9,7 +9,7 @@ ascii_art = r"""
 print(ascii_art)
 print('############################################################\n\
 HGTScanner v1.1\n\
-A Python tool for detecting horizontal gene transfer\n')
+A Python tool for detecting horizontal gene transfer in coding and non-coding regions\n')
 
 try:
     # Attempt to import all required (non-standard) modules
@@ -287,7 +287,8 @@ def aln_scaffolder(bedtxt,split_block=False):
 		for k in consolidatedtable.keys():
 			refpos=[l[1]+'-'+l[2] for l in consolidatedtable[k]]
 			targetpos=[l[4]+'-'+l[5] for l in consolidatedtable[k]]
-			outputtable.append(consolidatedtable[k][0][0]+'\t'+';'.join(refpos)+'\t'+consolidatedtable[k][0][3]+'\t'+';'.join(targetpos)+'\t'+'\t'.join(consolidatedtable[k][0][6:]))
+			#outputtable.append(consolidatedtable[k][0][0]+'\t'+';'.join(refpos)+'\t'+consolidatedtable[k][0][3]+'\t'+';'.join(targetpos)+'\t'+'\t'.join(consolidatedtable[k][0][6:]))
+			outputtable.append(consolidatedtable[k][0][0]+'\t'+'+'.join(refpos)+'\t'+consolidatedtable[k][0][3]+'\t'+'+'.join(targetpos)+'\t'+'\t'.join(consolidatedtable[k][0][6:]))
 	return(outputtable)
 
 def write_seq_from_bed_txt(bed_txt,output_handle):
@@ -295,7 +296,7 @@ def write_seq_from_bed_txt(bed_txt,output_handle):
 		l=str(l).split()
 		#write header
 		d=output_handle.write(f">{l[7]}|{l[6]}|{l[2]}_{l[3]}\n")
-		tg_pos=l[3].split(';')
+		tg_pos=l[3].split('+')
 		tg_seq=''
 		#write seq, merge multiple regions if needed
 		for i in tg_pos:
@@ -607,6 +608,7 @@ if args.m =='mtpt':
 			continue
 		else:
 			S=f"FastTree -quiet -nt {output_dir}/{sp}.mtpt.{i}.aln.fas >{output_dir}/{sp}.mtpt.{i}.aln.fas.treefile"
+			#S=f"iqtree2 -T 1 -B 1000 -s {output_dir}/{sp}.mtpt.{i}.aln.fas"
 			subprocess.run(S, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 	if args.nofasttree:
 		print(str(datetime.datetime.now())+'\tAlignment complete')
@@ -636,7 +638,7 @@ if args.m =='mtpt':
 			z_score = abs(q_branch.dist - stats.mean(branch_lengths)) / stats.stdev(branch_lengths)
 			#print(id, z_score, q_branch.dist)
 			if q_branch.dist>0.15 and z_score >10:
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer\tNA\tNA\tNA\tNA\n")
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (high confidence)\tNA\tNA\tNA\tNA\n")
 				continue
 			#now these look like true mtpt
 			#Rooting based on the ncbi common taxonomy
@@ -669,7 +671,10 @@ if args.m =='mtpt':
 			if ingroup_start<min(qs_index) and ingroup_end>max(qs_index):nested_in_ingroup = 1
 			if all(i in ingroup for i in sister_family):
 				#native MTPT: sister clade is ingroup
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tnative MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+				if len(sister_family)==1:
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tnative MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+				else:
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 			elif len([i for i in sister_family if i in ingroup])==0:
 				#sister clade is outgroup
 				if nested_in_ingroup == 1:
@@ -690,17 +695,20 @@ if args.m =='mtpt':
 							fam_support = max_clade_support(q,donor_fam_tips,t)
 							new_sum_txt.append('\t'.join(line.split()[0:4])+f"\thigh confidence alien MTPT\t{fam_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 						else:
-							#does not nest with other species of the same family: putative alien MTPT
-							new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tputative alien MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+							#does not nest with other species of the same family: putative mt transfer
+							new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 					elif len(sister_family)<6:
 						#putative alien MTPT: no more than five donor family is involved
-						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tputative alien MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 					else:
 						#ancestral mt transfer: too many donor family involved
-						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (high confidence)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 			else:
 				#inconclusive: sister clade is ingroup+outgroup
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+				if len(sister_family)>5:
+					#too many sister family likely ancestral mt transfer
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+				else:new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 		except ete3.parser.newick.NewickError:
 			new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tTree not found\tNA\tNA\tNA\tNA\n")
 	#update the summary file
@@ -792,7 +800,7 @@ elif args.m == 'mt':
 	if args.e:evalue=args.e
 	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate HGT with evalue threshold of '+str(evalue))
 	S='blastn -task dc-megablast -query '+sp+'.mt_db.fas -db '+sp+'.mt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mt.blast'
-	os.system(S)
+	#os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#Add taxonomic information to each hit at species and family level to help identify syntenic blocks
 	x=open(sp+'.mt.blast').readlines()
@@ -871,7 +879,7 @@ elif args.m == 'mt':
 					j=str(new_raw_beds).split()
 					new_raw_beds=[f"{j[0]}\t{j[1]}-{j[2]}\t{j[3]}\t{j[4]}-{j[5]}\t{j[6]}\t{j[7]}\t{j[8]}\t{j[9]}\t{j[10]}"]
 				#write other family
-				min_start=1000000
+				min_start=100000000000
 				max_end=0
 				for l in new_raw_beds:
 					l=str(l).split()
@@ -880,7 +888,7 @@ elif args.m == 'mt':
 					if int(query_pos[-1])>max_end:max_end=int(query_pos[-1])
 					#write sequence
 					d=out.write(f">{l[7]}|{l[6]}|{l[2]}_{l[3]}\n")
-					tg_pos=l[3].split(';')
+					tg_pos=l[3].split('+')
 					tg_seq=''
 					for i in tg_pos:
 						start=int(i.split('-')[0])
