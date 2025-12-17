@@ -9,7 +9,7 @@ ascii_art = r"""
 print(ascii_art)
 print('############################################################\n\
 HGTScanner v1.1\n\
-A Python tool for detecting horizontal gene transfer in coding and non-coding regions\n')
+A Python tool for genome-wise detection of horizontal gene transfers\n')
 
 try:
     # Attempt to import all required (non-standard) modules
