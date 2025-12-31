@@ -185,7 +185,7 @@ Here, we demonstrate how to identify MTPT and HGT in Aeginetia indica, which is 
 
 a. The query mitochondrial genome assembly `Aeginetia_indica.fas` (GenBank ID: NC_069194) in FASTA format.
 
-b. List of ingroup families `taxon.txt`, which contained all families of Lamiales. The query family is labeled as `query` and others as `ingroup`. The label and the family names are seperated by a tab.
+b. List of ingroup families `taxon.txt`, which contained all families of Lamiales. The query family is labeled as `query` and others as `ingroup`. The the family names and labels are seperated by a tab.
 
 ```
 Orobanchaceae	query
