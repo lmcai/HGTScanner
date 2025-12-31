@@ -217,25 +217,18 @@ python HGTscanner.py -m mtpt -q Aeginetia_indica.fas  -o Ain -taxon taxon.txt -p
 
 ### 3. Output interpretation
 
+The following output files were generated
+
 a. Summary spreadsheet `Ain.mtpt.sum.tsv` with the following columns:
-
-Locus_ID: numbered ID of the locus
-
-Target_scaffold: sequence header of the query FASTA
-
-Start: Start position of the loci 
-
-End: End position of the loci
-
-Classification: classification of MTPT based on the criteria presented in Cai and Cohen (2026).
-
-Support: Branch support for the placement of the query sequence. May range 0-1 for FastTree and 0-100 for IQ-TREE and RAxML.
-
-Sister_family: List of families in the immediate sister of the query, seperated by ',' 
-
-Sister_genus: List of genera in the immediate sister of the query, seperated by ',' 
-
-Sister_species: List of species in the immediate sister of the query, seperated by ',' 
+	- Locus_ID: numbered ID of the locus
+	- Target_scaffold: sequence header of the query FASTA
+	- Start: Start position of the loci 
+	- End: End position of the loci
+	- Classification: classification of MTPT based on the criteria presented in Cai and Cohen (2026).
+	- Support: Branch support for the placement of the query sequence. May range 0-1 for FastTree and 0-100 for IQ-TREE and RAxML.
+	- Sister_family: List of families in the immediate sister of the query, seperated by ',' 
+	- Sister_genus: List of genera in the immediate sister of the query, seperated by ',' 
+	- Sister_species: List of species in the immediate sister of the query, seperated by ',' 
 
 b. `Ain.mtpt.blast`: the original BLASTN result
 
