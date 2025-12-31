@@ -1,0 +1,10 @@
+Orobanchaceae	query
+Lamiaceae	ingroup
+Scrophulariaceae	ingroup
+Oleaceae	ingroup
+Phrymaceae	ingroup
+Acanthaceae	ingroup
+Verbenaceae	ingroup
+Plantaginaceae	ingroup
+Gesneriaceae	ingroup
+Bignoniaceae	ingroup
