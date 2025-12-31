@@ -175,6 +175,8 @@ For mt HGT:
 python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -mt_add_seq [mt.fas] [optional] -b [bed_file_for_masking] 
 ```
 
+### 4. Use IQ-TREE instead of FastTree
+
 ## IV. Complete tutorial for MTPT and HGT detection in Aeginetia
 
 Here, we demonstrate how to identify MTPT and HGT in Aeginetia indica, which is an Orobanchaceae parasitic plant specialized in grasses. All input and output files can be found in the `example`.
@@ -215,8 +217,31 @@ python HGTscanner.py -m mtpt -q Aeginetia_indica.fas  -o Ain -taxon taxon.txt -p
 
 ### 3. Output interpretation
 
-a. Summary spreadsheet: Ain.mtpt.sum.tsv
+a. Summary spreadsheet `Ain.mtpt.sum.tsv` with the following columns:
 
-| Locus_ID	| Target_scaffold	| Start	| End	| Phylo_classification	| Support	| Sister_family	| Sister_genus	| Sister_species |
-| 1	| Ain_1	| 4409	| 5021	| native MTPT	| 0.862	| Orobanchaceae	| Xylanche,Christisonia,Gleadovia,Schwalbea,Pedicularis,Centranthera,Aphyllon,Siphonostegia,Phtheirospermum,Harveya,Phacellanthus,Lathraea,Aeginetia,Pterygiella	| Orobanchaceae|LM037|LM037_10669_11244,Orobanchaceae|Castilleja_paramensis|NC_031805.1_141671_142246,Orobanchaceae|Castilleja_paramensis|Castilleja_paramensis_141671_142246,Orobanchaceae|LM001|LM001_138201_138776,Orobanchaceae|LM105|LM105_141668_142243,Orobanchaceae|Triphysaria_versicolor|NC_053793.1_141314_141889,Orobanchaceae|Pedicularis_chinensis|Pedicularis_chinensis_136262_136837,Orobanchaceae|LM040|LM040_140977_141552,Orobanchaceae|Phtheirospermum_japonicum|NC_053792.1_142148_142723,Orobanchaceae|Xylanche_himalaica|NC_068836.1_60244_60839,Orobanchaceae|Aeginetia_indica|Aeginetia_indica_17251_17792,Orobanchaceae|Christisonia_kwangtungensis|Christisonia_kwangtungensis_44660_44975,Orobanchaceae|Pedicularis_alaschanica|NC_080929.1_136003_136578,Orobanchaceae|LM162|LM162_128435_129010,Orobanchaceae|Melampyrum_koreanum|NC_057523.1_132698_133279,Orobanchaceae|Gleadovia_mupinensis|NC_086656.1_104068_104632,Orobanchaceae|Phacellanthus_tubiflorus|NC_068243.1_53992_54566,Orobanchaceae|Cistanche_sinensis|Cistanche_sinensis_20869_21397,Orobanchaceae|LM081|LM081_22108_22680,Orobanchaceae|Cistanche_tubulosa|Cistanche_tubulosa_20016_20577,Orobanchaceae|LM089|LM089_12913_13467,Orobanchaceae|LM099|LM099_66850_67425,Orobanchaceae|Aphyllon_californicum|NC_025651.1_109761_110336,Orobanchaceae|LM016|LM016_21663_22238,Orobanchaceae|LM098|LM098_10502_11077,Orobanchaceae|LM014|LM014_100642_101218,Orobanchaceae|LM020|LM020_22342_22922,Orobanchaceae|Aphyllon_purpureum|Aphyllon_purpureum_13430_14005,Orobanchaceae|Aphyllon_fasciculatum|NC039679_54369_54935,Orobanchaceae|LM033|LM033_141452_142027,Orobanchaceae|LM121|LM121_141964_142539,Orobanchaceae|LM136|LM136_141643_142218,Orobanchaceae|Lindenbergia_indica|NC_080204.1_121609_122185,Orobanchaceae|LM085|LM085_139232_139808,Orobanchaceae|Lathraea_squamaria|Lathraea_squamaria_139299_139874,Orobanchaceae|Lathraea_japonica|NC_086659.1_10667_11232,Orobanchaceae|Pterygiella_cylindrica|NC_063636.1_143550_144125,Orobanchaceae|Brandisia_cauliflora|NC_073570.1_142850_143425,Orobanchaceae|LM122|LM122_143312_143887,Orobanchaceae|Cymbaria_daurica|NC_064104.1_140623_141198,Orobanchaceae|LM161|LM161_25738_26313,Orobanchaceae|Siphonostegia_chinensis|NC_046038.1_138409_138984,Orobanchaceae|Schwalbea_americana|NC_023115.1_150473_151048,Orobanchaceae|LM051|LM051_119310_119885,Orobanchaceae|LM109|LM109_120167_120742,Orobanchaceae|LM143|LM143_137832_138407,Orobanchaceae|Striga_asiatica|NC_067570.1_148229_148528,Orobanchaceae|LM093|LM093_20680_21026,Orobanchaceae|Centranthera_grandiflora|NC_059747.1_136935_137510,Orobanchaceae|LM117|LM117_137010_137585,Orobanchaceae|Harveya_capensis|Harveya_capensis_10610_11179,Orobanchaceae|LM030|LM030_130664_131239,Orobanchaceae|Euphrasia_regelii|NC_045041.1_141798_142373
-| 8	| Ain_1	| 36973	| 37263	| ancestral mt transfer	| NA	| NA	| NA	| NA |
+Locus_ID: numbered ID of the locus
+
+Target_scaffold: sequence header of the query FASTA
+
+Start: Start position of the loci 
+
+End: End position of the loci
+
+Classification: classification of MTPT based on the criteria presented in Cai and Cohen (2026).
+
+Support: Branch support for the placement of the query sequence. May range 0-1 for FastTree and 0-100 for IQ-TREE and RAxML.
+
+Sister_family: List of families in the immediate sister of the query, seperated by ',' 
+
+Sister_genus: List of genera in the immediate sister of the query, seperated by ',' 
+
+Sister_species: List of species in the immediate sister of the query, seperated by ',' 
+
+b. `Ain.mtpt.blast`: the original BLASTN result
+
+c. `Ain.mtpt.bed`: a bed file of BLASTN hits ordered by position and with added taxon information. The 11 columns contain the following information: (1) query sequence ID, (2) query start, (3) query end, (4) hit sequence ID, (5) hit start, (6) hit end, (7) bit score, (8) e-value, (9) hit species, (10) hit family, (11) unique ID for the BLAST record
+
+d. `Ain.mtpt.merged.bed`: a bed file for BLAST record IDs contained in each locus. The {i}th row represents the homologous sequence locations for {i}th locus in the summary spreadsheet. The list of numbers in the fourth column represents the unique BLAST record ID in `Ain.mtpt.bed`.
+
+e. `Ain_HGTscanner_supporting_files`: a folder containing the raw sequence `.fas`, alignment `.aln.fas`, and phylogeny `.treefile` for each locus.
+
