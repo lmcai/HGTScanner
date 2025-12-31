@@ -15,7 +15,7 @@
 	
 [III. Quick start](https://github.com/lmcai/HGTScanner#iii-quick-start)
 
-[IV. Complete tutorial for HGT detection in Aphyllon](https://github.com/lmcai/HGTScanner#iv-complete-tutorial-for-hgt-detection-in-aeginetia)
+[IV. Complete tutorial for HGT detection in Aeginetia](https://github.com/lmcai/HGTScanner#iv-complete-tutorial-for-hgt-detection-in-aeginetia)
 
 ## I. General guidelines for experimental design
 
