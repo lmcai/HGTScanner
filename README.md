@@ -232,7 +232,18 @@ a. Summary spreadsheet `Ain.mtpt.sum.tsv` with the following columns:
 
 b. `Ain.mtpt.blast`: the original BLASTN result
 
-c. `Ain.mtpt.bed`: a bed file of BLASTN hits ordered by position and with added taxon information. The 11 columns contain the following information: (1) query sequence ID, (2) query start, (3) query end, (4) hit sequence ID, (5) hit start, (6) hit end, (7) bit score, (8) e-value, (9) hit species, (10) hit family, (11) unique ID for the BLAST record
+c. `Ain.mtpt.bed`: a bed file of BLASTN hits ordered by position and with added taxon information. The 11 columns contain the following information: 
+- (1) query sequence ID
+- (2) query start
+- (3) query end
+- (4) hit sequence ID
+- (5) hit start
+- (6) hit end
+- (7) bit score
+- (8) e-value
+- (9) hit species
+- (10) hit family
+- (11) unique ID for the BLAST record
 
 d. `Ain.mtpt.merged.bed`: a bed file for BLAST record IDs contained in each locus. The {i}th row represents the homologous sequence locations for {i}th locus in the summary spreadsheet. The list of numbers in the fourth column represents the unique BLAST record ID in `Ain.mtpt.bed`.
 
