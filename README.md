@@ -251,7 +251,7 @@ d. `Ain.mtpt.merged.bed`: a bed file for BLAST record IDs contained in each locu
 
 e. `Ain_HGTscanner_supporting_files`: a folder containing the raw sequence `.fas`, alignment `.aln.fas`, and phylogeny `.treefile` for each locus.
 
-After examining the `Ain.mtpt.sum.tsv`, locus #1, 15, 26, 28 were classified as `native MTPT`, locus #14 and 18 are high confidence alien MTPTs from Poaceae. These loci should be masked in the next step. Others are either mitochondrial transfers or inconclusive.
+After examining the `Ain.mtpt.sum.tsv`, locus #1, 15, 26, 28 were classified as **native MTPT**, locus #14 and 18 are **high confidence alien MTPTs** from Poaceae. These loci should be masked in the next step. Others are either mitochondrial transfers or inconclusive.
 
 ### 4. Input preparation for mt HGT
 
