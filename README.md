@@ -205,8 +205,10 @@ c. Custom plastid sequence `pt.fasta`. The header should follow the format `Fami
 ```
 >Orobanchaceae|Aeginetia_indica|Aeginetia_indica
 ATATCATTATGATAAAATTGGTAAATTAATGCTGTTATGATGAAATTGGTAGACATGTTGCTTTTAGACAGCAATATTAA
+...
 >Orobanchaceae|Conopholis_alpina|LM013
 ATATCATTATGATAAAATTGGTAAATTAATGCTGTTATGATGAAATTGGTAGACATGTTGCTTTTAGACAGCAATATTAA
+...
 ```
 
 ### 2. Run HGTScanner for MTPT
