@@ -21,7 +21,7 @@
 
 Examples of what HGTScanner can do :smiley: :
 
-- Identify the genomic location and donor lineage (to family and maybe genus level) of HGT from an **known or unknown** green plant mitochondrion to a parasitic plant mitochondrion, in both gene and **intergenic** regions.
+- Identify the genomic location and donor lineage (to family and, less confidently, genus level) of HGT from an **known or unknown** green plant mitochondrion to a parasitic plant mitochondrion, in both gene and **intergenic** regions.
  
 - Identify the genomic location and donor lineage of HGT from an unknown fungus mitochondrion to a plant mitochondrion. With user-supplied fungus sequence database.
 
