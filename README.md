@@ -168,7 +168,24 @@ For mt HGT:
 python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -mt_add_seq [mt.fas] [optional] -b [bed_file_for_masking] 
 ```
 
-### 4. Use IQ-TREE instead of FastTree
+### 4. Use IQ-TREE/RAxML instead of FastTree
+Users can choose IQ-TREE/RAxML instead of FastTree for phylogenetic inference to improve accuracy. This also allows for the distribution of phylogenetic inference to high performance computer clusters. It is important to named the resulting phylogeny in the format of `[output_prefix].mtpt.[id].aln.fas.treefile` for MTPT and `[output_prefix].hgt.[id].aln.fas.treefile` for HGT in each loci (e.g., Atr.hgt.1.aln.fas.treefile). These resulting trees should be placed in the same folder as the alignments: `[output_prefix]_HGTscanner_supporting_files`. Then the following command can be used:
+```
+#for MTPT
+python HGTscanner.py -m mtpt_eval -o [output_prefix] -taxon [taxonomy_file] -wd [working_dir]
+#for HGT
+python HGTscanner.py -m mt_eval -o [output_prefix] -taxon [taxonomy_file] -wd [working_dir]
+```
+Note that the `working_dir` should be the directory containing both *.mtpt.sum.tsv and *_HGTscanner_supporting_files:
+```
+working_dir/
+├── sp_HGTscanner_supporting_files/
+│   ├── sp.mtpt.1.fas
+│   └── sp.mtpt.1.aln.fas
+│   └── sp.mtpt.1.aln.fas.treefile
+│   ...
+└── sp.mtpt.sum.tsv
+```
 
 ## IV. Complete tutorial for MTPT and HGT detection in Aeginetia
 
