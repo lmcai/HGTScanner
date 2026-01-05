@@ -789,7 +789,6 @@ elif args.m =='mtpt_eval':
 	new_sum_txt.append(sum_txt[0])
 	for line in sum_txt[1:]:
 		id=line.split()[0]
-		print(id)
 		q='query|'+line.split()[1]
 		try:
 			t=Tree(output_dir+"/"+sp+'.mtpt.'+id+'.aln.fas.treefile')
@@ -799,13 +798,26 @@ elif args.m =='mtpt_eval':
 			z_score = abs(q_branch.dist - stats.mean(branch_lengths)) / stats.stdev(branch_lengths)
 			#print(id, z_score, q_branch.dist)
 			if q_branch.dist>0.15 and z_score >10:
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer\tNA\tNA\tNA\tNA\n")
+				raw_support = q_branch.get_ancestors()[0].support
+				sister_nd = q_branch.get_sisters()[0]
+				sister_tips=[leaf.name for leaf in sister_nd]
+				sister_family = list(set([i.split('|')[0] for i in sister_tips]))
+				sister_genera=[]
+				for i in sister_tips:
+					try:
+						genus=i.split('|')[1]
+						genus=genus.split('_')[0]
+						sister_genera.append(genus)
+					except IndexError:
+						sister_genera.append(i.split('_')[0])
+				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (high confidence)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 				continue
 			#now these look like true mtpt
 			#Rooting based on the ncbi common taxonomy
 			ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
 			t=ncbi_ref_root(t,ncbi_tree)
 			#print(t.write())
+			#Check sister clade of the quqery
 			q_branch=t&q
 			sister_nd = q_branch.get_sisters()[0]
 			sister_tips=[leaf.name for leaf in sister_nd]
@@ -822,26 +834,59 @@ elif args.m =='mtpt_eval':
 					sister_genera.append(i.split('_')[0])
 			sister_genera = list(set([i.split('_')[0] for i in sister_genera]))
 			raw_support = q_branch.get_ancestors()[0].support
+			#Check the neighbors of (query+sister)
+			alltips=[j.name for j in t]
+			qs_index = [j for j, name in enumerate(alltips) if name in [q] + sister_tips]
+			ingroup_binary = [1 if j.split('|')[0] in ingroup else 0 for j in alltips]
+			ingroup_start,ingroup_end,ingroup_index=find_max_block_around_element(ingroup_binary, min(qs_index), max(qs_index), max_diff_count=1)
+			nested_in_ingroup = 0
+			if ingroup_start<min(qs_index) and ingroup_end>max(qs_index):nested_in_ingroup = 1
 			if all(i in ingroup for i in sister_family):
-				#native MTPT
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tnative MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
-			elif len([i for i in sister_family if i in ingroup])==0:
-				#alien MTPT
+				#native MTPT: sister clade is ingroup
 				if len(sister_family)==1:
-					fam_support = family_level_support(q,sister_family[0],t)
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tnative MTPT\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 				else:
-					fam_support = raw_support
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\talien MTPT\t{fam_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+			elif len([i for i in sister_family if i in ingroup])==0:
+				#sister clade is outgroup
+				if nested_in_ingroup == 1:
+					#but nested within ingroup: inconclusive
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+				else:
+					#do not nest within ingroups
+					if len(sister_family)==1:
+						#check the neighbor of the q+sister
+						donor_fam_binary = [1 if j.split('|')[0] in sister_family else 0 for j in alltips]
+						donor_fam_start,donor_fam_end,donor_fam_index=find_max_block_around_element(donor_fam_binary, min(qs_index), max(qs_index), max_diff_count=1)
+						nested_in_donor_fam = 0
+						if donor_fam_start<min(qs_index) or donor_fam_end>max(qs_index):nested_in_donor_fam = 1
+						if nested_in_donor_fam:
+							#alien MTPT: a single donor family is involved and the q+sister nest within other species of the same donor family
+							if donor_fam_end==len(alltips):donor_fam_tips = alltips[donor_fam_start:]
+							else:donor_fam_tips = alltips[donor_fam_start:donor_fam_end+1]
+							fam_support = max_clade_support(q,donor_fam_tips,t)
+							new_sum_txt.append('\t'.join(line.split()[0:4])+f"\thigh confidence alien MTPT\t{fam_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+						else:
+							#does not nest with other species of the same family: putative mt transfer
+							new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+					elif len(sister_family)<6:
+						#putative alien MTPT: no more than five donor family is involved
+						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+					else:
+						#ancestral mt transfer: too many donor family involved
+						new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (high confidence)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 			else:
-				#inconclusive
-				new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+				#inconclusive: sister clade is ingroup+outgroup
+				if len(sister_family)>5:
+					#too many sister family likely ancestral mt transfer
+					new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tancestral mt transfer (putative)\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
+				else:new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tinconclusive\t{raw_support}\t{','.join(sister_family)}\t{','.join(sister_genera)}\t{','.join(sister_tips)}\n")
 		except ete3.parser.newick.NewickError:
 			new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tTree not found\tNA\tNA\tNA\tNA\n")
 	#update the summary file
-	#sum_out = open(sp+'.mtpt.sum.tsv','w')
-	#d=sum_out.write(''.join(new_sum_txt))
-	print(''.join(new_sum_txt))
-	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.hgt.sum.tsv')
+	sum_out = open(f"{args.wd}/{sp}.mtpt.sum.tsv",'w')
+	d=sum_out.write(''.join(new_sum_txt))
+	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source based on supporting information from '+ args.wd+'. See summary file in '+sp+'.hgt.sum.tsv')
 
 #####################################
 #IV. MT mode for HGT detection in mito
