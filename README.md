@@ -77,7 +77,6 @@ HGTscanner.py [-h] -m mode -o output_prefix -taxon taxon_file [-q query] [-pt_fi
 ### Options:
 ```
 options:
-options:
   -h, --help          show this help message and exit
   -m mode             Choose from: mtpt, mtpt_eval, mt, mt_eval
   -o output_prefix    Output prefix
