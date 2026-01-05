@@ -179,7 +179,7 @@ python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_f
 
 ## IV. Complete tutorial for MTPT and HGT detection in Aeginetia
 
-Here, we demonstrate how to identify MTPT and HGT in Aeginetia indica, which is an Orobanchaceae parasitic plant specialized in grasses. All input and output files can be found in the `example`.
+Here, we demonstrate how to identify MTPT and HGT in Aeginetia indica, which is an Orobanchaceae parasitic plant specialized in grasses. All input and output files can be found in the `/example`.
 
 ### 1. Input preparation for MTPT
 
@@ -205,8 +205,10 @@ c. Custom plastid sequence `pt.fasta`. The header should follow the format `Fami
 ```
 >Orobanchaceae|Aeginetia_indica|Aeginetia_indica
 ATATCATTATGATAAAATTGGTAAATTAATGCTGTTATGATGAAATTGGTAGACATGTTGCTTTTAGACAGCAATATTAA
+...
 >Orobanchaceae|Conopholis_alpina|LM013
 ATATCATTATGATAAAATTGGTAAATTAATGCTGTTATGATGAAATTGGTAGACATGTTGCTTTTAGACAGCAATATTAA
+...
 ```
 
 ### 2. Run HGTScanner for MTPT
@@ -249,3 +251,27 @@ d. `Ain.mtpt.merged.bed`: a bed file for BLAST record IDs contained in each locu
 
 e. `Ain_HGTscanner_supporting_files`: a folder containing the raw sequence `.fas`, alignment `.aln.fas`, and phylogeny `.treefile` for each locus.
 
+After examining the `Ain.mtpt.sum.tsv`, locus #1, 15, 26, 28 were classified as **native MTPT**, locus #14 and 18 are **high confidence alien MTPTs** from Poaceae. These loci should be masked in the next step. Others are either mitochondrial transfers or inconclusive.
+
+### 4. Input preparation for mt HGT
+
+a. The query mitochondrial genome assembly `Aeginetia_indica.fas` 
+
+b. List of ingroup families `taxon.txt`
+
+c. A bed file to mask gene regions and MTPTs `Ain.mask.bed`
+```
+Ain_1	4409	5021	mtpt
+Ain_1	84935	85061	mtpt
+Ain_1	86090	86359	mtpt
+Ain_1	67	525 rpl16
+Ain_1	39819	40223	nad3
+...
+```
+
+### 5. Running mt HGT identification
+
+Use the following command to identify homology, scaffold alignment, build phylogeny, and evaluate HGT:
+```
+python HGTscanner.py -m mt -q Aeginetia_indica.fas  -o Ain -taxon taxon.txt -b Ain.mask.bed
+```
