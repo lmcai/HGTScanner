@@ -45,12 +45,6 @@ HGTScanner has been test on macOS and Linux.
 ```
 git clone https://github.com/lmcai/HGTScanner.git
 ```
-Or from the source package:
-```
-#for v1.1
-wget [html]
-tar xzvf hgtscanner_v1.1.tar.gz
-```
 2. Then install dependencies via conda, which will create a conda environment called `hgtscanner`
 ```
 cd HGTScanner
