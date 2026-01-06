@@ -171,14 +171,16 @@ python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_f
 ### 4. Use IQ-TREE/RAxML instead of FastTree
 Users can choose IQ-TREE/RAxML instead of FastTree for phylogenetic inference to improve accuracy. This also allows for the distribution of phylogenetic inference to high performance computer clusters. 
 
-**Important**: The resulting phylogeny must be named in the format of `[output_prefix].mtpt.[id].aln.fas.treefile` for MTPT and `[output_prefix].hgt.[id].aln.fas.treefile` for HGT in each loci (e.g., Atr.hgt.1.aln.fas.treefile). These resulting trees should be placed in the same folder as the alignments in `[output_prefix]_HGTscanner_supporting_files`. Then the following command can be used:
+**Important**: The resulting phylogeny must be named in the format of `[prefix].mtpt.[id].aln.fas.treefile` for MTPT and `[prefix].hgt.[id].aln.fas.treefile` for HGT (e.g., Atr.hgt.1.aln.fas.treefile). 
+
+These resulting trees should be placed in the same folder as the alignments in `[output_prefix]_HGTscanner_supporting_files`. Then the following command can be used to assess HGT:
 ```
 #for MTPT
 python HGTscanner.py -m mtpt_eval -o [output_prefix] -taxon [taxonomy_file] -wd [working_dir]
 #for HGT
 python HGTscanner.py -m mt_eval -o [output_prefix] -taxon [taxonomy_file] -wd [working_dir]
 ```
-Note that the `working_dir` should be the directory containing both *.mtpt.sum.tsv and *_HGTscanner_supporting_files:
+Note that the `-wd` argument should be the name of the directory containing both *.mtpt.sum.tsv and *_HGTscanner_supporting_files:
 ```
 working_dir/
 ├── sp_HGTscanner_supporting_files/
