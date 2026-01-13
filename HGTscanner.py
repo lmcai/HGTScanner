@@ -53,7 +53,7 @@ parser.add_argument('-mt_add_seq', metavar='fasta', help='A fasta file containin
 parser.add_argument('-wd', metavar='dir', help='Path to working dir where *.sum.tsv and *_HGTscanner_supporting_files are located.')
 parser.add_argument('-b', metavar='bed_file', help='A bed file for regions to be masked')
 parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
-parser.add_argument('-nofasttree', action='store_true', help='No FastTree phylogeny inference')
+parser.add_argument('-notree', action='store_true', help='No FastTree phylogeny inference')
 
 ####################################
 #I. pass argument values, check required arguments and input file format
@@ -133,6 +133,7 @@ python HGTScanner.py -m mtpt -q <query sequence> -o <output prefix> -taxon <file
 		print(f"Error: {type(e).__name__} - {e}")
 		sys.exit()
 elif args.m == 'mtpt_eval':
+	if args.wd is None:parser.error("the following argument is required for 'mtpt_eval': -wd")
 	try:
 		sp=args.o
 		print(str(datetime.datetime.now())+'\tClassify MTPT for '+sp)
@@ -159,6 +160,37 @@ elif args.m == 'mtpt_eval':
 #ERROR:Insufficient arguments!\n\
 Usage:\n\
 python HGTScanner.py -m mtpt_eval -o <output prefix> -wd <dir> -taxon <file>')
+	except Exception as e:
+		print(f"Error: {type(e).__name__} - {e}")
+		sys.exit()
+elif args.m == 'mt_eval':
+	if args.wd is None:parser.error("the following argument is required for 'mt_eval': -wd")
+	try:
+		sp=args.o
+		print(str(datetime.datetime.now())+'\tClassify HGT for '+sp)
+		print(str(datetime.datetime.now())+'\tChecking taxonomy file...')
+		taxon = open(args.taxon).readlines()
+		ingroup=[]
+		fam=''
+		for l in taxon:
+			try:
+				ingroup.append(l.split()[0])
+				if l.split()[1].lower() == 'query':fam=l.split()[0]
+			except IndexError:
+				print(str(datetime.datetime.now())+'\tMalformatted taxonomy file. Please double check. Exit...')
+				sys.exit()
+		if fam=='':
+			sys.exit(str(datetime.datetime.now())+'\tQuery family not set. Exit...')
+		print(f"{datetime.datetime.now()}\tTaxonomy file looks OK")
+		print(f"{datetime.datetime.now()}\tThe query belongs to family: {fam}; The following are close relatives: {', '.join(ingroup)}")
+		sum_path=args.wd
+		if not (os.path.isfile(f"{sum_path}/{sp}.hgt.sum.tsv") and os.path.isdir(f"{sum_path}/{sp}_HGTscanner_supporting_files")):
+			sys.exit(str(datetime.datetime.now())+f"\tNo {sp}.hgt.sum.tsv or {sp}_HGTscanner_supporting_files found in {sum_path}. Exit...")
+	except TypeError:
+		print('############################################################\n\
+#ERROR:Insufficient arguments!\n\
+Usage:\n\
+python HGTScanner.py -m mt_eval -o <output prefix> -wd <dir> -taxon <file>')
 	except Exception as e:
 		print(f"Error: {type(e).__name__} - {e}")
 		sys.exit()
@@ -432,7 +464,7 @@ def ncbi_ref_root(tree,reference_phylo):
 
 def max_clade_support(query,tip_collection,tree):
 	q_branch=tree&query
-	best_support=q_branch.get_ancestors()[0].support
+	best_support=0
 	for nd in tree:
 		if nd.name in tip_collection:
 			nd.add_features(type="ingroup")
@@ -444,7 +476,8 @@ def max_clade_support(query,tip_collection,tree):
 			break
 	for child in q_clade.traverse('preorder'):
 		if any(leaf.name.startswith('query|') for leaf in child.get_leaves()):
-			if child.support >best_support and (not child.is_leaf()):
+			allchildren_tips=[leaf.name for leaf in child]
+			if child.support >best_support and (not child.is_leaf()) and (not all(j.startswith(("query", fam)) for j in allchildren_tips)):
 				best_support = child.support
 	return(best_support)
 
@@ -479,50 +512,30 @@ def find_max_block_around_element(lst, element_start, element_end, max_diff_coun
 			diff_count += 1
 	return(first_ingroup, last_ingroup, list(set(ingroup_id)))
 
-def GetSister(tree,target_sp):
+def GetSister(tree,target_sp,q_fam):
 	q_branch=tree&target_sp
+	#make sure the query branch is not the root
 	if q_branch.get_ancestors()[0].is_root():
 		ancestor=tree.get_midpoint_outgroup()
 		tree.set_outgroup(ancestor)
 	if not q_branch.get_ancestors()[0].is_root():
 		for leaf in tree:
 			leaf.add_features(family=leaf.name.split('|')[0])
-		q_branch.add_features(family='Orobanchaceae')
-		q_oro_branch=''
-		#get Orobanchaceae receiver at species level
-		receiver=[]
-		for nd in tree.get_monophyletic(values=["Orobanchaceae"], target_attr="family"):
+		q_branch.add_features(family=q_fam)
+		q_fam_branch=''
+		for nd in tree.get_monophyletic(values=[q_fam], target_attr="family"):
 			if target_sp in [leaf.name for leaf in nd]:
-				q_oro_branch=nd
-		for leaf in q_oro_branch:
-			spp=leaf.name.split('|')[-1]
-			if spp==target_sp:
-				receiver.append(id2sp[target_sp.split('_')[0]])
-			elif spp.startswith('Oro') and not spp.startswith('Orobanche'):
-				spp=spp[3:]
-				try:receiver.append(id2sp[spp])
-				except KeyError:receiver.append(spp)
-			else:receiver.append(spp)
-		receiver=list(set(receiver))			
-		for nd in tree.get_monophyletic(values=["Orobanchaceae"], target_attr="family"):
-			if target_sp in [leaf.name for leaf in nd]:
-				q_oro_branch=nd
-		donor=[leaf.name for leaf in q_oro_branch.get_sisters()[0]]
+				q_fam_branch=nd
+		receiver=[nd.name for nd in q_fam_branch]
+		donor=[leaf.name for leaf in q_fam_branch.get_sisters()[0]]
 		#get donor at family level
 		donor_family=list(set([j.split('|')[0] for j in donor]))
-		donor_genera_temp=[j.split('|')[-1] for j in donor]
-		donor_genera_temp=list(set([j.split('_')[0] for j in donor_genera_temp]))
-		donor_genera=[]
-		for k in donor_genera_temp:
-			if k.startswith('Oro') and not k.startswith('Orobanche'):
-				try:donor_genera.append(id2sp[k[3:]].split('_')[0])
-				except KeyError:donor_genera.append(k)
-			else:donor_genera.append(k)
-		donor_genera=list(set(donor_genera))
+		donor_genera=[j.split('|')[1] for j in donor]
+		donor_genera=list(set([j.split('_')[0] for j in donor_genera]))
 		bs=tree.get_common_ancestor(donor+[target_sp]).support
-		return(receiver,donor_family,donor_genera,str(bs))
+		return(receiver,donor_family,donor_genera,donor,str(bs))
 	else:
-		return('NA','NA','NA','NA')
+		return('NA','NA','NA','NA','NA')
 
 
 #take a tree and return true or false for VGT based on tip orders, this is a generous way to classify VGT and better accommodates topology error in a phylo tree
@@ -645,7 +658,7 @@ if args.m =='mtpt':
 	sum_out.close()
 	print(str(datetime.datetime.now())+'\tFound '+ str(len(retained_order))+' potential MTPT sequences for '+sp+' from the original '+str(order-1)+' loci showing plastid seq homology')
 	#alignment and phylogenetic reconstruction
-	if args.nofasttree:
+	if args.notree:
 		print(str(datetime.datetime.now())+'\tStart alignment for '+str(len(retained_order))+' loci with more than 10 taxa. May take a while...')
 	else:
 		print(str(datetime.datetime.now())+'\tStart alignment and phylogeny for '+str(len(retained_order))+' loci with more than 10 taxa. May take a while...')
@@ -653,13 +666,13 @@ if args.m =='mtpt':
 		print(f"{str(datetime.datetime.now())}\tAnalyzing Loci #{i}", end='\r')
 		S="mafft --quiet --adjustdirection "+output_dir+"/"+sp+".mtpt."+str(i)+".fas | sed 's/_R_//g' > "+output_dir+"/"+sp+".mtpt."+str(i)+".aln.fas"
 		os.system(S)
-		if args.nofasttree:
+		if args.notree:
 			continue
 		else:
 			S=f"FastTree -quiet -nt {output_dir}/{sp}.mtpt.{i}.aln.fas >{output_dir}/{sp}.mtpt.{i}.aln.fas.treefile"
 			#S=f"iqtree2 -T 1 -B 1000 -s {output_dir}/{sp}.mtpt.{i}.aln.fas"
 			subprocess.run(S, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-	if args.nofasttree:
+	if args.notree:
 		print(str(datetime.datetime.now())+'\tAlignment complete')
 		print(str(datetime.datetime.now())+'\tCleaning intermediate files')
 		os.system(f"rm {sp}.mtpt.n*")
@@ -886,7 +899,7 @@ elif args.m =='mtpt_eval':
 	#update the summary file
 	sum_out = open(f"{args.wd}/{sp}.mtpt.sum.tsv",'w')
 	d=sum_out.write(''.join(new_sum_txt))
-	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source based on supporting information from '+ args.wd+'. See summary file in '+sp+'.hgt.sum.tsv')
+	print(str(datetime.datetime.now())+f"\tCompleted evaluation of MTPT source based on supporting information from {args.wd}/{sp}_HGTscanner_supporting_files. See summary file in '+sp+'.hgt.sum.tsv')
 
 #####################################
 #IV. MT mode for HGT detection in mito
@@ -1060,7 +1073,7 @@ elif args.m == 'mt':
 	#############
 	#alignment and phylogenetic reconstruction
 	#############
-	if args.nofasttree:
+	if args.notree:
 		print(f"{current_time}\tStart alignment for #{order} loci")
 	else:
 		print(f"{current_time}\tStart alignment and FastTree phylogeny for #{order} loci")
@@ -1081,12 +1094,12 @@ elif args.m == 'mt':
 		records = list(SeqIO.parse(aln_out, "fasta"))
 		records = records[1:] + [records[0]]
 		SeqIO.write(records, aln_out, "fasta")
-		if args.nofasttree:
+		if args.notree:
 			continue
 		else:
 			S=f"FastTree -quiet -nt {sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas >{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile"
 			subprocess.run(S, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-	if args.nofasttree:
+	if args.notree:
 		print(str(datetime.datetime.now())+'\tCompleted alignment. See sequence file in '+sp+'_HGTscanner_supporting_files')
 		sys.exit(str(datetime.datetime.now())+'\tYou have chosen to complete phylogeny separately. Exit...')
 	else:
@@ -1097,10 +1110,11 @@ elif args.m == 'mt':
 	print(f"{current_time}\tStart evaluating hypothesis of HGT...")
 	#classify mt HGT
 	lines=open(sp+'.alnmap.bed').readlines()
-	sum_txt = []
-	sum_txt.append('ID\tStart\tEnd\tAlignment\tClassification\tReceiver\tDonor_Family\tDonor_genera\tMethod\tBS\n')
-	i=1
+	out=open(f"{sp}.hgt.sum.tsv","w")
+	d=out.write('ID\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tMethod\tBS\n')
 	for l in lines:
+		i = l.split()[-1]
+		i = i.split('.')[2]
 		recs=open(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.fas").readlines()
 		allsp=[j[1:].strip() for j in recs if j.startswith('>')]
 		target_tip=[j for j in allsp if j.startswith('query')]
@@ -1118,73 +1132,105 @@ elif args.m == 'mt':
 		genera=list(set([j.split('_')[0] for j in genera]))
 		same_fam_sp_id=[j for j in allsp if j.startswith(fam)]
 		same_fam_sp = list(set([j.split('|')[1] for j in same_fam_sp_id]))
-		#BLAST case 1: only two families (the query and donor) are in the blast result
-		if len(families)<2:
+		#BLAST case 1: only one or two families are in the blast result
+		if len(families)==0:
+			#VGT: only the query family
+			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST: homology only found in ingroup','NA'])+'\n')
+		elif len(families)==1:
 			if families[0] in ingroup:
 				#VGT: the only other family is an ingroup
-				d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST','NA'])+'\n')
+				d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST: homology only found in ingroup','NA'])+'\n')
 			else:
 				#HGT: the only other family is not ingroup
-				receiver=';'.join(same_fam_sp+[target_tip])
-				donor_fam='High confidence: '+';'.join(families)
+				receiver=';'.join([target_tip]+same_fam_sp)
+				donor_fam=families[0]
 				donor_gen=';'.join(genera)
-				d=out.write(f"{l.strip()}\tHigh confidence HGT\t{receiver}\t{donor_fam}\t{donor_gen}\tBLAST\tNA\n")
-		#BLAST case 2: no other ingroup is in the tree, but there are at least two other families
-		elif len(ingroup_sp)==0:
-			#check tree for donor
-			try:
-				t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile")
-				receiver,donor_fam,donor_gen,bs=GetSister(t,target_tip[0])
-				d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST',bs])+'\n')
-			except ete3.parser.newick.NewickError:
-				receiver=target_tip
-				donor_fam=''
-				donor_gen=''
-				bs=''
-				if len(allsp)<4:
-					#too few tips to run a tree
-					donor_fam=families
-					donor_gen=genera
-					bs='NA'
-				d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',receiver,';'.join(donor_fam),';'.join(donor_gen),'BLAST',bs])+'\n')
-		#Phylogeny to assess classification	
+				d=out.write(f"{l.strip()}\tHigh confidence HGT\t{receiver}\t{donor_fam}\t{donor_gen}\tBLAST: exclusive homology in two families\tNA\n")
+		#>=2 other families
 		else:
-			try:
-				#examine if this can be a VGT without rerooting the tree
-				t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
-				#VGT based on tip order: the query if nested within an ingroup cluster
-				if VGTFromTipOrder(t,target_tip,fam):
-					d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
-				else:
-					#root tree
+			#BLAST case 2: no other ingroup is in the tree, but there are at least two other families
+			if len(ingroup_sp)==0:
+				#check tree for donor
+				try:
+					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile")
+					#reroot
 					ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
 					t=ncbi_ref_root(t,ncbi_tree)
-					#use tree topology to make decisions
-					receiver,donor_fam,donor_gen,bs=GetSister(t,target_tip,fam)
-					if len(donor_fam)==1:
-						if donor_fam[0] in close_relative:
-							#VGT: the first non-query-family sister lineage of the query belongs to an ingroup
-							d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
-						else:
-							#query nested within the donor clade
-							if :
-								classification='High confidence HGT'
-								d=out.write(l.strip()+'\t'+'\t'.join([classification,';'.join(receiver),'High confidence: '+';'.join(donor_fam),';'.join(donor_gen),method,bs])+'\n')
+					receiver,donor_fam,donor_gen,donor_tips,bs=GetSister(t,target_tip,fam)
+					if not receiver=='NA':
+						#check if the query is well nested within the donor family
+						if len(donor_fam)==1:
+							alltips=[node.name for node in t]
+							qs_index = [j for j, name in enumerate(alltips) if name in receiver]
+							donor_fam_binary = [1 if j.split('|')[0] in donor_fam else 0 for j in alltips]
+							donor_fam_start,donor_fam_end,donor_fam_index=find_max_block_around_element(donor_fam_binary, min(qs_index), max(qs_index), max_diff_count=1)
+							nested_in_donor_fam = 0
+							if donor_fam_start<min(qs_index) or donor_fam_end>max(qs_index):nested_in_donor_fam = 1
+							if nested_in_donor_fam:
+								d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST+Phylogeny: no ingroup shows homology and nested in donor family',bs])+'\n')
 							else:
-								#one family that's not close relative, but phylogeny is not completely well nested within
-								classification='Putative HGT'
-								d=out.write(l.strip()+'\t'+'\t'.join([classification,';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),method,bs])+'\n')
+								d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST: no other ingroup shows homology',bs])+'\n')
+						else:
+							d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST: no other ingroup shows homology',bs])+'\n')
 					else:
-						#multiple donor families
-						classification='Inconclusive'
-						d=out.write(l.strip()+'\t'+'\t'.join([classification,';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),method,bs])+'\n')
-			except ete3.parser.newick.NewickError:
-				receiver=target_tip
-				donor_fam=''
-				donor_gen=''
-				bs=''
-				d=out.write(l.strip()+'\t'+'\t'.join([classification,receiver,';'.join(donor_fam),';'.join(donor_gen),method,bs])+'\n')
-		i=i+1
-	out=open(sp+'.hgt.sum.tsv','w')
-	d=out.write(sum_txt)
+						#the query was placed on root by mid-point rooting
+						d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join([target_tip]+same_fam_sp),';'.join(families),';'.join(genera),'BLAST: check rooting problem',bs])+'\n')
+				except ete3.parser.newick.NewickError:
+					receiver=target_tip
+					donor_fam=''
+					donor_gen=''
+					bs=''
+					if len(allsp)<4:
+						#too few tips to run a tree
+						donor_fam=families
+						donor_gen=genera
+						bs='NA'
+					d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',receiver,';'.join(donor_fam),';'.join(donor_gen),'BLAST: check rooting problem',bs])+'\n')
+			#Phylogeny to assess classification	
+			else:
+				try:
+					#examine if this can be a VGT without rerooting the tree
+					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
+					#VGT based on tip order: the query if nested within an ingroup cluster
+					if VGTFromTipOrder(t,target_tip,fam):
+						d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
+					else:
+						#root tree
+						ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
+						t=ncbi_ref_root(t,ncbi_tree)
+						#use tree topology to make decisions
+						receiver,donor_fam,donor_gen,donor_tips,bs=GetSister(t,target_tip,fam)
+						if VGTFromTipOrder(t,target_tip,fam):
+							d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
+							continue
+						if len(donor_fam)==1:
+							if donor_fam[0] in ingroup:
+								#VGT: query sister to an ingroup
+								d=out.write(l.strip()+'\t'+'\t'.join(['VGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+							else:
+								#check if the query is well nested within the donor family
+								alltips=[node.name for node in t]
+								qs_index = [j for j, name in enumerate(alltips) if name in receiver + donor_tips]
+								donor_fam_binary = [1 if j.split('|')[0] in donor_fam else 0 for j in alltips]
+								donor_fam_start,donor_fam_end,donor_fam_index=find_max_block_around_element(donor_fam_binary, min(qs_index), max(qs_index), max_diff_count=1)
+								nested_in_donor_fam = 0
+								if donor_fam_start<min(qs_index) or donor_fam_end>max(qs_index):nested_in_donor_fam = 1
+								if nested_in_donor_fam:
+									#High confidence HGT: a single donor family is involved and the q+sister nest within other species of the same donor family
+									if donor_fam_end==len(alltips):donor_fam_tips = alltips[donor_fam_start:]
+									else:donor_fam_tips = alltips[donor_fam_start:donor_fam_end+1]
+									fam_support = max_clade_support(target_tip,donor_fam_tips,t)
+									d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny: nested in donor family',bs])+'\n')
+								else:
+									#Putative HGT: one family that's not close relative, but phylogeny is not completely well nested within
+									d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+						else:
+							#multiple donor families
+							d=out.write(l.strip()+'\t'+'\t'.join(['Inconclusive',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+				except ete3.parser.newick.NewickError:
+					receiver=target_tip
+					donor_fam=''
+					donor_gen=''
+					bs=''
+					d=out.write(l.strip()+'\t'+'\t'.join(['tree_not_found',receiver,';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
 	out.close()
