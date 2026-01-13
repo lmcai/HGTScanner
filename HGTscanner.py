@@ -40,7 +40,7 @@ except ImportError as e:
     sys.exit(1) # Exit the script with an error code
 
 
-parser = argparse.ArgumentParser(description='HGTscanner dentifies HGT blocks in organellar genomes.')
+parser = argparse.ArgumentParser(description='HGTscanner identifies HGT blocks in organellar genomes.')
 parser.add_argument('-m', metavar='mode', help='Choose from: mtpt, mtpt_eval, mt, mt_eval', required=True)
 parser.add_argument('-o', metavar='output_prefix', help='Output prefix', required=True)
 parser.add_argument('-taxon', metavar='taxon_file', help='A file containing the family of the query and a list of its close relatives for HGT classification', required=True)
