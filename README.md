@@ -71,7 +71,7 @@ git clean -f -d
 ```
 HGTscanner.py [-h] -m mode -o output_prefix -taxon taxon_file [-q query] [-pt_fix_id id_file]
               [-pt_add_seq fatsa] [-pt_add_id id_file] [-hit integer] [-mt_add_seq fasta] [-wd dir]
-              [-b bed_file] [-e evalue] [-nofasttree]
+              [-b bed_file] [-e evalue] [-notree]
 ```
 
 ### Options:
@@ -90,7 +90,7 @@ options:
   -wd dir             Path to working dir where *.sum.tsv and *_HGTscanner_supporting_files are located.
   -b bed_file         A bed file for regions to be masked
   -e evalue           BLAST evalue threshold
-  -nofasttree         No FastTree phylogeny inference
+  -notree         No FastTree phylogeny inference
 ```
 
 ### 1. MTPT detection
