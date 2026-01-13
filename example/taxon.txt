@@ -8,3 +8,4 @@ Verbenaceae	ingroup
 Plantaginaceae	ingroup
 Gesneriaceae	ingroup
 Bignoniaceae	ingroup
+Phrymaceae	ingroup
