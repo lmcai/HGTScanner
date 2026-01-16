@@ -615,7 +615,7 @@ if args.m =='mtpt':
 	order=1
 	retained_order=[]
 	sum_out=open(sp+'.mtpt.sum.tsv','w')
-	sum_out.write('Locus_ID\tTarget_scaffold\tStart\tEnd\tPhylo_classification\tSupport\tSister_family\tSister_genus\tSister_species\n')
+	sum_out.write('Locus_ID\tQuery\tStart\tEnd\tClassification\tSupport\tSister_family\tSister_genus\tSister_species\n')
 	output_dir = sp+'_HGTscanner_supporting_files'
 	if not os.path.isdir(output_dir):os.mkdir(output_dir)
 	order = 1
@@ -1112,7 +1112,7 @@ elif args.m == 'mt':
 	#classify mt HGT
 	lines=open(sp+'.alnmap.bed').readlines()
 	out=open(f"{sp}.hgt.sum.tsv","w")
-	d=out.write('ID\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tMethod\tBS\n')
+	d=out.write('Query\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tMethod\tBS\n')
 	for l in lines:
 		i = l.split()[-1]
 		i = i.split('.')[2]
@@ -1227,7 +1227,7 @@ elif args.m == 'mt':
 									d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
 						else:
 							#multiple donor families
-							d=out.write(l.strip()+'\t'+'\t'.join(['Inconclusive',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+							d=out.write(l.strip()+'\t'+'\t'.join(['inconclusive',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
 				except ete3.parser.newick.NewickError:
 					receiver=target_tip
 					donor_fam=''

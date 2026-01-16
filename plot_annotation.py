@@ -6,46 +6,60 @@ import math, os, argparse
 
 
 parser = argparse.ArgumentParser(description='Plot HGTScanner annotation and save to pdf.')
-parser.add_argument('-f', metavar='tsv_file', help='summary tsv file', required=True)
-parser.add_argument('-o', metavar='output', help='putput file name', required=True)
+parser.add_argument('-tsv', metavar='tsv_file', help='summary tsv file')
+parser.add_argument('-bed', metavar='bed_file', help='annotation bed file')
+parser.add_argument('-o', metavar='output_file', help='putput file name', required=True)
 parser.add_argument('-l', metavar='wrapping_len(kb)', help='genome wrapping length in kb', required=True)
 args = parser.parse_args()
 
-sum_file = args.f
 output_pdf = args.o
 wrap_kb = int(args.l)
 
 wrap_bp = wrap_kb * 1000
 
-df = pd.read_csv(
-    sum_file,
-    sep="\t",
-    header=None,
-    names=["seqid", "start", "end", "type"]
-)
+if args.tsv:
+	sum_file = args.tsv
+	df = pd.read_csv(
+    	sum_file,
+    	sep="\t"
+    )
+elif args.bed:
+	sum_file = args.bed
+	df = pd.read_csv(
+    	sum_file,
+    	sep="\t",
+    	header=None,
+    	names=["Query", "Start", "End", "Classification"]
+	)
+else:
+	print('############################################################\n\
+#ERROR: Annotation file in tsv or bed format is missing!\n\
+Usage:\n\
+python HGTScanner.py -m mt -q <query sequence> -o <output prefix> -f <family> [optional] -mt_add_seq <reference fasta> -e <e value> -b <bed file for masking>')
+	sys.exit()
 
 color_map = {
-    "VGT": "skyblue",             # vertical gene transfer / baseline
-    "mtpt": "forestgreen",        # mitochondria-derived
-    "moss HGT": "#FF7F0E",        # orange
-    "algae HGT": "#E377C2",       # pink-magenta
-    "seed HGT": "#D62728",        # red
-    "Hachettea HGT": "#9467BD",   # purple
-    "Podocarpaceae HGT": "#2CA02C", # dark green
-    "gymnosperm HGT": "#8C564B"   # brown
+	"inconclusive": "#D3D3D3", # light gray
+	"ancestral mt transfer (high confidence)": "#C9A400", # mustard / dark yellow
+	"ancestral mt transfer (putative)": "#F2E085", # pale yellow
+	"high confidence alien MTPT": "#C51B8A",  # magenta
+	"native MTPT": "#228B22", # forest green
+    "VGT": "#0B3C5D", #navy blue
+    "High confidence HGT": "#D62728", #strong red
+    "Putative HGT": "#FF7F0E", #orange
 }
 
 palette = plt.colormaps["tab10"].colors
-chroms = df["seqid"].unique()
+chroms = df["Query"].unique()
 
 with PdfPages(output_pdf) as pdf:
     for chrom in chroms:
-        chrom_df = df[df["seqid"] == chrom]
-        max_pos = chrom_df["end"].max()
+        chrom_df = df[df["Query"] == chrom]
+        max_pos = chrom_df["End"].max()
         num_rows = math.ceil(max_pos / wrap_bp)
         fig, ax = plt.subplots(figsize=(14, 1.5 * num_rows + 1))
         # Assign colors to unseen annotation types
-        all_types = chrom_df["type"].unique()
+        all_types = chrom_df["Classification"].unique()
         for i, t in enumerate(all_types):
             if t not in color_map:
                 color_map[t] = palette[i % len(palette)]
@@ -74,12 +88,12 @@ with PdfPages(output_pdf) as pdf:
             )
             # Features overlapping this row
             mask = (
-                (chrom_df["start"] < row_end) &
-                (chrom_df["end"] > row_start)
+                (chrom_df["Start"] < row_end) &
+                (chrom_df["End"] > row_start)
             )
             for _, feat in chrom_df[mask].iterrows():
-                f_start = max(feat["start"], row_start)
-                f_end = min(feat["end"], row_end)
+                f_start = max(feat["Start"], row_start)
+                f_end = min(feat["End"], row_end)
                 x_pos = f_start - row_start
                 width = f_end - f_start
                 ax.add_patch(
@@ -87,10 +101,10 @@ with PdfPages(output_pdf) as pdf:
                         (x_pos, y_pos),
                         width,
                         0.5,
-                        color=color_map.get(feat["type"], "grey"),
+                        color=color_map.get(feat["Classification"], "grey"),
                         edgecolor="black",
                         linewidth=0.4,
-                        label=feat["type"]
+                        label=feat["Classification"]
                     )
                 )
         ax.set_xlim(0, wrap_bp)
