@@ -897,9 +897,10 @@ elif args.m =='mtpt_eval':
 		except ete3.parser.newick.NewickError:
 			new_sum_txt.append('\t'.join(line.split()[0:4])+f"\tTree not found\tNA\tNA\tNA\tNA\n")
 	#update the summary file
-	sum_out = open(f"{args.wd}/{sp}.mtpt.sum.tsv",'w')
+	sum_out = open(f"{sp}.mtpt.sum.tsv",'w')
 	d=sum_out.write(''.join(new_sum_txt))
-	print(str(datetime.datetime.now())+f"\tCompleted evaluation of MTPT source based on supporting information from {args.wd}/{sp}_HGTscanner_supporting_files. See summary file in '+sp+'.hgt.sum.tsv')
+	sum_out.close()
+	print(str(datetime.datetime.now())+f"\tCompleted evaluation of MTPT source based on supporting information from {args.wd}/{sp}_HGTscanner_supporting_files. See summary file in {sp}.hgt.sum.tsv")
 
 #####################################
 #IV. MT mode for HGT detection in mito

@@ -2,14 +2,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.backends.backend_pdf import PdfPages
-import math
-
+import math, os, argparse
 
 
 parser = argparse.ArgumentParser(description='Plot HGTScanner annotation and save to pdf.')
-parser.add_argument('-f', metavar='file', help='summary tsv file', required=True)
+parser.add_argument('-f', metavar='tsv_file', help='summary tsv file', required=True)
 parser.add_argument('-o', metavar='output', help='putput file name', required=True)
-parser.add_argument('-l', metavar='wrapping length', help='genome wrapping length in kb', required=True)
+parser.add_argument('-l', metavar='wrapping_len(kb)', help='genome wrapping length in kb', required=True)
 args = parser.parse_args()
 
 sum_file = args.f
