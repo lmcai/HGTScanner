@@ -210,23 +210,21 @@ options:
 
 a) For direct output from HGTScanner:
 ```
-python plot_annotation.py -tsv ./example/Ain.mtpt.sum.tsv -l 100 -o Ain.mtpt.pdf
+python plot_annotation.py -tsv sp.mtpt.sum.tsv -l 100 -o sp.mtpt.pdf
 ```
-This result in plot like this:
 
-
-b) For user-curated bed file `Ain.ann.bed`, which has the following format:
+b) For user-curated bed file `sp.ann.bed`, which has the following format:
 ```
-Ain_1	4409	5021	native MTPT
-Ain_1	36973	37263	HGT
-Ain_1	37676	38793	ancestral mt transfer (high confidence)
-Ain_1	84935	85061	VGT
-Ain_1	97432	97980	gene
+chr1	4409	5021	native MTPT
+chr1	36973	37263	HGT
+chr1	37676	38793	ancestral mt transfer (high confidence)
+chr1	84935	85061	VGT
+chr1	97432	97980	gene
 ...
 ```
 The following command can be used:
 ```
-python plot_annotation.py -tsv Ain.ann.bed -l 100 -o Ain.mtpt.pdf
+python plot_annotation.py -tsv sp.ann.bed -l 100 -o sp.mtpt.pdf
 ```
 
 
