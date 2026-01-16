@@ -565,7 +565,15 @@ def VGTFromTipOrder(tree,target_sp,q_family):
 			if ingroup_binary[qfam_end+1]==1:output=1
 		return(output)	
 
-
+def correct_nd_support(tree):
+	#FastTree does not report branch support for super short branches or when it is close to 0, ete3 store those value as node.name instead of node.support, needs to be corrected
+	for nd in tree.traverse():
+		if not nd.is_leaf():
+			if nd.name:nd.support = float(nd.name)  # real support
+			else:nd.support = 0.0 # or None
+			nd.name = ""
+	return(tree)
+        
 ####################################
 #III. MTPT mode
 ###################################
@@ -693,7 +701,8 @@ if args.m =='mtpt':
 		id=line.split()[0]
 		q='query|'+line.split()[1]
 		try:
-			t=Tree(output_dir+"/"+sp+'.mtpt.'+id+'.aln.fas.treefile')
+			t=Tree(output_dir+"/"+sp+'.mtpt.'+id+'.aln.fas.treefile',format=1)
+			t=correct_nd_support(t)
 			#check branch length of query first, if too long, certainly an ancestral mt transfer and not a young mtpt
 			q_branch=t&q
 			branch_lengths = [node.dist for node in t.traverse() if not node.is_root()]
@@ -789,7 +798,7 @@ if args.m =='mtpt':
 	sum_out = open(sp+'.mtpt.sum.tsv','w')
 	d=sum_out.write(''.join(new_sum_txt))
 	#print(''.join(new_sum_txt))
-	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.hgt.sum.tsv')
+	print(str(datetime.datetime.now())+'\tCompleted evaluation of MTPT source. See summary file in '+sp+'.mtpt.sum.tsv')
 	
 ##################
 elif args.m =='mtpt_eval':
@@ -804,7 +813,8 @@ elif args.m =='mtpt_eval':
 		id=line.split()[0]
 		q='query|'+line.split()[1]
 		try:
-			t=Tree(output_dir+"/"+sp+'.mtpt.'+id+'.aln.fas.treefile')
+			t=Tree(output_dir+"/"+sp+'.mtpt.'+id+'.aln.fas.treefile',format=1)
+			t=correct_nd_support(t)
 			#check branch length of query first, if too long, certainly an ancestral mt transfer and not a young mtpt
 			q_branch=t&q
 			branch_lengths = [node.dist for node in t.traverse() if not node.is_root()]
@@ -900,7 +910,7 @@ elif args.m =='mtpt_eval':
 	sum_out = open(f"{sp}.mtpt.sum.tsv",'w')
 	d=sum_out.write(''.join(new_sum_txt))
 	sum_out.close()
-	print(str(datetime.datetime.now())+f"\tCompleted evaluation of MTPT source based on supporting information from {args.wd}/{sp}_HGTscanner_supporting_files. See summary file in {sp}.hgt.sum.tsv")
+	print(str(datetime.datetime.now())+f"\tCompleted evaluation of MTPT source based on supporting information from {args.wd}/{sp}_HGTscanner_supporting_files. See summary file in {sp}.mtpt.sum.tsv")
 
 #####################################
 #IV. MT mode for HGT detection in mito
@@ -957,10 +967,10 @@ elif args.m == 'mt':
 			otherfam.append(l)
 		else:
 			samefam.append(l)
-	#merge BLAST hits, but require at least 20 bp overlap
+	#merge BLAST hits, but require at least 50 bp overlap
 	otherfam_merged=pybedtools.BedTool(''.join(otherfam), from_string=True).merge(c=11,o='collapse',d=-50)
 	samefam_bed=pybedtools.BedTool(''.join(samefam), from_string=True)
-	out=open(sp+'.merged.bed','w')
+	out=open(sp+'.mt.merged.bed','w')
 	d=out.write(str(otherfam_merged))
 	out.close()
 	print(str(datetime.datetime.now())+'\tFound '+str(len(otherfam_merged))+' homologous genetic blocks for further examination')
@@ -1132,7 +1142,7 @@ elif args.m == 'mt':
 		genera=[j.split('|')[1] for j in allsp if not j.startswith(fam)]
 		genera=list(set([j.split('_')[0] for j in genera]))
 		same_fam_sp_id=[j for j in allsp if j.startswith(fam)]
-		same_fam_sp = list(set([j.split('|')[1] for j in same_fam_sp_id]))
+		#same_fam_sp = list(set([j.split('|')[1] for j in same_fam_sp_id]))
 		#BLAST case 1: only one or two families are in the blast result
 		if len(families)==0:
 			#VGT: only the query family
@@ -1143,7 +1153,7 @@ elif args.m == 'mt':
 				d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST: homology only found in ingroup','NA'])+'\n')
 			else:
 				#HGT: the only other family is not ingroup
-				receiver=';'.join([target_tip]+same_fam_sp)
+				receiver=';'.join([target_tip]+same_fam_sp_id)
 				donor_fam=families[0]
 				donor_gen=';'.join(genera)
 				d=out.write(f"{l.strip()}\tHigh confidence HGT\t{receiver}\t{donor_fam}\t{donor_gen}\tBLAST: exclusive homology in two families\tNA\n")
@@ -1153,7 +1163,8 @@ elif args.m == 'mt':
 			if len(ingroup_sp)==0:
 				#check tree for donor
 				try:
-					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile")
+					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
+					t=correct_nd_support(t)
 					#reroot
 					ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
 					t=ncbi_ref_root(t,ncbi_tree)
@@ -1175,7 +1186,7 @@ elif args.m == 'mt':
 							d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST: no other ingroup shows homology',bs])+'\n')
 					else:
 						#the query was placed on root by mid-point rooting
-						d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join([target_tip]+same_fam_sp),';'.join(families),';'.join(genera),'BLAST: check rooting problem',bs])+'\n')
+						d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join([target_tip]+same_fam_sp_id),';'.join(families),';'.join(genera),'BLAST: check rooting problem',bs])+'\n')
 				except ete3.parser.newick.NewickError:
 					receiver=target_tip
 					donor_fam=''
@@ -1192,6 +1203,7 @@ elif args.m == 'mt':
 				try:
 					#examine if this can be a VGT without rerooting the tree
 					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
+					t=correct_nd_support(t)
 					#VGT based on tip order: the query if nested within an ingroup cluster
 					if VGTFromTipOrder(t,target_tip,fam):
 						d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
@@ -1235,3 +1247,4 @@ elif args.m == 'mt':
 					bs=''
 					d=out.write(l.strip()+'\t'+'\t'.join(['tree_not_found',receiver,';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
 	out.close()
+	print(str(datetime.datetime.now())+'\tCompleted evaluation of HGT source. See summary file in '+sp+'.hgt.sum.tsv')
