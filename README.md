@@ -9,13 +9,13 @@
 **Contact**: Reach out to Liming Cai (cail@ufl.edu) for questions or open an [Issue](https://github.com/lmcai/HGTScanner/issues).
 
 ## Quick link
-[I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner/blob/main/README.md#i-general-guidelines-for-experimental-design)
+[I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner#i-general-guidelines-for-experimental-design)
 
-[II. Installation](https://github.com/lmcai/HGTScanner/blob/main/README.md#ii-installation)
+[II. Installation](https://github.com/lmcai/HGTScanner#ii-installation)
 	
-[III. Quick start](https://github.com/lmcai/HGTScanner/blob/main/README.md#iii-quick-start)
+[III. Quick start](https://github.com/lmcai/HGTScanner#iii-quick-start)
 
-[IV. Complete tutorial for HGT detection in Aeginetia](https://github.com/lmcai/HGTScanner/blob/main/README.md#iv-complete-tutorial-for-mtpt-and-hgt-detection-in-aeginetia)
+[IV. Complete tutorial for HGT detection in Aeginetia](https://github.com/lmcai/HGTScanner#iv-complete-tutorial-for-mtpt-and-hgt-detection-in-aeginetia)
 
 ## I. General guidelines for experimental design
 
