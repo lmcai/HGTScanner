@@ -11,7 +11,7 @@
 ## Quick link
 [I. General guidelines for experimental design](https://github.com/lmcai/HGTScanner#i-general-guidelines-for-experimental-design)
 
-[II. Installation](https://github.com/lmcai/HGTScanner/README.md#ii-installation)
+[II. Installation](https://github.com/lmcai/HGTScanner#ii-installation)
 	
 [III. Quick start](https://github.com/lmcai/HGTScanner#iii-quick-start)
 
