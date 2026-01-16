@@ -274,7 +274,7 @@ The following output files were generated
 
 a. Summary spreadsheet `Ain.mtpt.sum.tsv` with the following columns:
 - Locus_ID: numbered ID of the locus
-- Target_scaffold: sequence header of the query FASTA
+- Query: query sequence name
 - Start: Start position of the loci 
 - End: End position of the loci
 - Classification: classification of MTPT based on the criteria presented in Cai and Cohen (2026).
