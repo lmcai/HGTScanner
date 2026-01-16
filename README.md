@@ -208,7 +208,7 @@ options:
   -l wrapping_len(kb)  genome wrapping length in kb
 ```
 
-a) For direct output from HGTScanner:
+a) For direct output from HGTScanner and wrap every 100 kb:
 ```
 python plot_annotation.py -tsv sp.mtpt.sum.tsv -l 100 -o sp.mtpt.pdf
 ```
