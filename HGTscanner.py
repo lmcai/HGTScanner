@@ -18,9 +18,11 @@ try:
     import ete3
     import pybedtools
     from numpy import median
+    import numpy as np
     from statistics import mode
     import statistics as stats
     import pandas as pd
+    from scipy.spatial import cKDTree
     
     # Import standard modules after the checks are passed
     import subprocess
@@ -28,7 +30,6 @@ try:
     import datetime
     import warnings
     warnings.filterwarnings("ignore")
-
 except ImportError as e:
     # If any module is missing, print a warning to the screen and exit
     print("------------------------------------------------------------")
@@ -184,8 +185,8 @@ elif args.m == 'mt_eval':
 		print(f"{datetime.datetime.now()}\tTaxonomy file looks OK")
 		print(f"{datetime.datetime.now()}\tThe query belongs to family: {fam}; The following are close relatives: {', '.join(ingroup)}")
 		sum_path=args.wd
-		if not (os.path.isfile(f"{sum_path}/{sp}.hgt.sum.tsv") and os.path.isdir(f"{sum_path}/{sp}_HGTscanner_supporting_files")):
-			sys.exit(str(datetime.datetime.now())+f"\tNo {sp}.hgt.sum.tsv or {sp}_HGTscanner_supporting_files found in {sum_path}. Exit...")
+		if not (os.path.isfile(f"{sum_path}/{sp}.alnmap.bed") and os.path.isdir(f"{sum_path}/{sp}_HGTscanner_supporting_files")):
+			sys.exit(str(datetime.datetime.now())+f"\tNo {sp}.alnmap.bed or {sp}_HGTscanner_supporting_files found in {sum_path}. Exit...")
 	except TypeError:
 		print('############################################################\n\
 #ERROR:Insufficient arguments!\n\
@@ -240,7 +241,9 @@ python HGTScanner.py -m mt -q <query sequence> -o <output prefix> -f <family> [o
 	except Exception as e:
 		print(f"Error: {type(e).__name__} - {e}")
 		sys.exit()
-
+else:
+	print(f"Error!!! Choose one of the following running modes: mtpt, mtpt_eval, mt, mt_eval. Quitting...")
+	sys.exit()
 	
 ################################
 #II. Define functions
@@ -380,22 +383,32 @@ def filter_blast_results(bed_id, family, top_n=100):
 	EVAL_COL = 7
 	BITSCORE = 6
 	FAMILY = 9
+	START = 1
+	END = 2
 	data_lines = [seq_loc[i] for i in bed_id]
 	data_lines = [l.split() for l in data_lines]
 	df = pd.DataFrame(data_lines)
-	df.rename(columns={GROUP_COL: 'GroupID', EVAL_COL: 'evalue', BITSCORE: 'bitscore', FAMILY: 'family'}, inplace=True)
+	df.rename(columns={START:'start', END: 'end', GROUP_COL: 'GroupID', EVAL_COL: 'evalue', BITSCORE: 'bitscore', FAMILY: 'family'}, inplace=True)
 	df["evalue"] = pd.to_numeric(df["evalue"], errors="coerce")
 	df["bitscore"] = pd.to_numeric(df["bitscore"], errors="coerce")
+	df["start"] = pd.to_numeric(df["start"], errors="coerce")
+	df["end"] = pd.to_numeric(df["end"], errors="coerce")
 	df_sorted = df.sort_values(
 		by=["evalue", "bitscore"],
 		ascending=[True, False]
 	)
-	df_final = pd.concat([
+	df_filtered = df_sorted.head(top_n)
+	total_len=df["end"].max()-df["start"].min()
+	df_filtered['perc'] = (df_filtered['end']-df_filtered['start'])/float(total_len)
+	number_of_long_hit = (df_filtered['perc'] > 0.6).sum()
+	df_completness = number_of_long_hit/len(df_filtered)
+	df_filtered = pd.concat([
 		df_sorted.head(top_n),
 		df_sorted[df_sorted["family"] == family]
 	]).drop_duplicates()
+	df_final = df[df['GroupID'].isin(df_filtered['GroupID'])]
 	filtered_bed = df_final.iloc[:, -1].tolist()
-	return [i.strip() for i in filtered_bed]
+	return (df_completness,number_of_long_hit,[i.strip() for i in filtered_bed])
 
 def find_intersect_bed(bedA,bedB):
 	a_hits = bedA.intersect(bedB, wa=True, f=0.7)
@@ -404,6 +417,51 @@ def find_intersect_bed(bedA,bedB):
 	unique_lines = list(dict.fromkeys(map(str, combined)))
 	intersect_unique_bed = pybedtools.BedTool('\n'.join(unique_lines), from_string=True)
 	return(intersect_unique_bed)
+
+def  divide_long_range_based_on_cluster(bed_id):
+	data_lines = [seq_loc[i] for i in bed_id]
+	data_lines = [l.split() for l in data_lines]
+	df = pd.DataFrame(data_lines)
+	START = 1
+	END = 2
+	df.rename(columns={START:'start', END: 'end'}, inplace=True)
+	df["start"] = pd.to_numeric(df["start"], errors="coerce")
+	df["end"] = pd.to_numeric(df["end"], errors="coerce")
+	points = df[["start", "end"]].to_numpy()
+	N = len(points)
+	k_dim_tree = cKDTree(points)
+	neighbors = k_dim_tree.query_ball_point(points, r=50, p=np.inf)
+	min_count = int(0.2 * N)
+	dense_centers = [
+    	i for i, idxs in enumerate(neighbors)
+    	if len(idxs) >= min_count
+	]
+	clusters = []
+	visited = set()
+	for i in dense_centers:
+		if i in visited:continue
+		stack = [i]
+		cluster = set()
+		while stack:
+			j = stack.pop()
+			if j in visited:continue
+			visited.add(j)
+			cluster.add(j)
+			for k in neighbors[j]:
+				if k in dense_centers:
+					stack.append(k)
+		clusters.append(cluster)
+	cluster_info = []
+	for c in clusters:
+		pts = points[list(c)]
+		cluster_info.append({
+			"n_points": len(pts),
+			"x_center": np.median(pts[:, 0]),
+			"y_center": np.median(pts[:, 1]),
+			"x_range": (pts[:, 0].min(), pts[:, 0].max()),
+			"y_range": (pts[:, 1].min(), pts[:, 1].max())
+		})
+	return(cluster_info)
 
 def ncbi_ref_root(tree,reference_phylo):
 	all_family=[node.name for node in tree]
@@ -642,7 +700,7 @@ if args.m =='mtpt':
 		hit_num = 200
 		if args.hit:hit_num=args.hit
 		if len(ids)>hit_num:
-			ids = filter_blast_results(ids,fam,hit_num)
+			_, _, ids = filter_blast_results(ids,fam,hit_num)
 		for i in ids:
 			line=seq_loc[i]
 			id=line.split()[3]
@@ -932,7 +990,7 @@ elif args.m == 'mt':
 	if args.e:evalue=args.e
 	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate HGT with evalue threshold of '+str(evalue))
 	S='blastn -task dc-megablast -query '+sp+'.mt_db.fas -db '+sp+'.mt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mt.blast'
-	os.system(S)
+	#os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#Add taxonomic information to each hit at species and family level to help identify syntenic blocks
 	x=open(sp+'.mt.blast').readlines()
@@ -991,63 +1049,107 @@ elif args.m == 'mt':
 		#If too many hits (>300), select the best ones
 		hit_num = 300
 		if args.hit:hit_num=args.hit
-		if len(ids)>hit_num:
-			ids = filter_blast_results(ids,fam,hit_num)
-		raw_beds_txt=[seq_loc[j] for j in ids]
-		seqout_beds=aln_scaffolder(raw_beds_txt,split_block=True)
-		if seqout_beds[0]=='X':
-			#this hit needs to be further divided into smaller chunks
-			raw_beds=pybedtools.BedTool(''.join(raw_beds_txt), from_string=True)
-			#print(''.join(raw_beds_txt)) #debug purposes
-			for i in seqout_beds[1]:
+		completeness, num_long_hit, new_ids = filter_blast_results(ids,fam,hit_num)
+		###Evaluate whether blocks needs to be further divided up
+		if completeness < 0.15 and num_long_hit < 6 and len(new_ids)>100 and hit.end-hit.start> 600:
+			#This block needs to be split up
+			#use DBSCAN-like clustering to identify repeated fragment regions
+			major_fragments = divide_long_range_based_on_cluster(new_ids)
+			if len(major_fragments)>0:
+				#find some small blocks
+				new_individual_bed_txt = '\n'.join([f"{hit.fields[0]}\t{int(j['x_center'])}\t{int(j['y_center'])}" for j in major_fragments])
+				new_individual_bed = pybedtools.BedTool(new_individual_bed_txt, from_string=True)  # internal blocks
+				hit_bed = pybedtools.BedTool([hit])
+				remaining_bed = hit_bed.subtract(new_individual_bed)
+				all_new_bed = remaining_bed.cat(new_individual_bed, postmerge=False).sort()
+				#rerank best hits within each individual block
+				raw_beds_txt=[seq_loc[j] for j in ids]
+				raw_beds=pybedtools.BedTool(''.join(raw_beds_txt), from_string=True)
+				for block_i in all_new_bed:
+					out=open(sp+'_HGTscanner_supporting_files'+'/'+sp+'.hgt.'+str(order)+'.fas','w')
+					subhit=pybedtools.BedTool([block_i])
+					#filter for region that either covers >70% of the query seq or have >70% of its own length within the target loci
+					new_raw_beds = find_intersect_bed(raw_beds,subhit)
+					new_raw_beds_ids = str(new_raw_beds).split('\n')
+					new_raw_beds_ids = [j.split()[-1] for j in new_raw_beds_ids[:-1]]
+					#filter for top hits
+					_, _, new_raw_beds_ids = filter_blast_results(new_raw_beds_ids,fam,hit_num)
+					#rescaffold
+					if len(new_raw_beds_ids)>1:
+						new_raw_beds_txt = [seq_loc[j] for j in new_raw_beds_ids]
+						new_raw_beds=aln_scaffolder(new_raw_beds_txt,split_block=False)
+					else:
+						j=str(new_raw_beds).split()
+						new_raw_beds=[f"{j[0]}\t{j[1]}-{j[2]}\t{j[3]}\t{j[4]}-{j[5]}\t{j[6]}\t{j[7]}\t{j[8]}\t{j[9]}\t{j[10]}"]
+					#write other family
+					#min_start=100000000000
+					#max_end=0
+					for l in new_raw_beds:
+						l=str(l).split()
+						#query_pos=l[1].split('-')
+						#if int(query_pos[0])<min_start:min_start=int(query_pos[0])
+						#if int(query_pos[-1])>max_end:max_end=int(query_pos[-1])
+						#write sequence
+						d=out.write(f">{l[7]}|{l[6]}|{l[2]}_{l[3]}\n")
+						tg_pos=l[3].split('+')
+						tg_seq=''
+						for i in tg_pos:
+							start=int(i.split('-')[0])
+							end=int(i.split('-')[1])
+							if start<end:
+								tg_seq=tg_seq+str(ref_recs[l[2]].seq[(start-1):end])
+							else:
+								tg_seq=tg_seq+str(ref_recs[l[2]].seq[(end-1):start].reverse_complement())
+						d=out.write(tg_seq+'\n')
+					#write query
+					q_pos=str(block_i).split()
+					q_rec_out = q_recs[l[0]][(int(q_pos[1])-1):int(q_pos[2])]
+					q_rec_out.id = "query|" + q_rec_out.id
+					q_rec_out.description = ""
+					d = SeqIO.write(q_rec_out, out, 'fasta')
+					#write close relative
+					samefam_hit = find_intersect_bed(samefam_bed,subhit)
+					if not samefam_hit.count()==0:
+						d=SeqIO.write(q_recs[l[0]][(int(q_pos[1])-1):int(q_pos[2])],sp+'.tempseed.fas','fasta')
+						out2=open(sp+'.tempTarget.fas','w')
+						for ll in samefam_hit:
+							d=SeqIO.write(ref_recs[ll.fields[3]],out2,'fasta')
+						out2.close()
+						samefam_bed_txt=seq2seq_ortho_extraction(sp+'.tempseed.fas',sp+'.tempTarget.fas')
+						if not samefam_bed_txt=='':write_seq_from_bed_txt(samefam_bed_txt,out)
+					d=mapout.write(hit.chrom+'\t'+q_pos[1]+'\t'+q_pos[2]+'\t'+sp+'.hgt.'+str(order)+'.fas\n')
+					order=order+1
+					out.close()
+			else:
+				#DBSCAN-like method was unable to divide it, output the whole chunk
+				raw_beds_txt=[seq_loc[j] for j in new_ids]
+				seqout_beds=aln_scaffolder(raw_beds_txt,split_block=False)
 				out=open(sp+'_HGTscanner_supporting_files'+'/'+sp+'.hgt.'+str(order)+'.fas','w')
-				subhit=pybedtools.BedTool(i, from_string=True)
-				#filter for region that either covers >70% of the query seq or have >70% of its own length within the target loci
-				new_raw_beds = find_intersect_bed(raw_beds,subhit)
-				#rescaffold
-				if new_raw_beds.count()>1:
-					new_raw_beds=aln_scaffolder(str(new_raw_beds).split('\n')[:-2],split_block=False)
-				else:
-					j=str(new_raw_beds).split()
-					new_raw_beds=[f"{j[0]}\t{j[1]}-{j[2]}\t{j[3]}\t{j[4]}-{j[5]}\t{j[6]}\t{j[7]}\t{j[8]}\t{j[9]}\t{j[10]}"]
 				#write other family
-				min_start=100000000000
-				max_end=0
-				for l in new_raw_beds:
-					l=str(l).split()
-					query_pos=l[1].split('-')
-					if int(query_pos[0])<min_start:min_start=int(query_pos[0])
-					if int(query_pos[-1])>max_end:max_end=int(query_pos[-1])
-					#write sequence
-					d=out.write(f">{l[7]}|{l[6]}|{l[2]}_{l[3]}\n")
-					tg_pos=l[3].split('+')
-					tg_seq=''
-					for i in tg_pos:
-						start=int(i.split('-')[0])
-						end=int(i.split('-')[1])
-						if start<end:
-							tg_seq=tg_seq+str(ref_recs[l[2]].seq[(start-1):end])
-						else:
-							tg_seq=tg_seq+str(ref_recs[l[2]].seq[(end-1):start].reverse_complement())
-					d=out.write(tg_seq+'\n')
+				write_seq_from_bed_txt(seqout_beds,out)
 				#write query
-				q_rec_out = q_recs[l[0]][(min_start-1):max_end]
+				q_rec_out = q_recs[hit.chrom][(hit.start-1):hit.end]
 				q_rec_out.id = "query|" + q_rec_out.id
 				q_rec_out.description = ""
 				d = SeqIO.write(q_rec_out, out, 'fasta')
-				#write close relative
+				#write close relatives
+				subhit=pybedtools.BedTool(str(hit),from_string=True)
 				samefam_hit = find_intersect_bed(samefam_bed,subhit)
 				if not samefam_hit.count()==0:
-					d=SeqIO.write(q_recs[l[0]][(min_start-1):max_end],sp+'.tempseed.fas','fasta')
+					#write sequences from close relatives if they are not empty
+					d=SeqIO.write(q_recs[hit.chrom][(hit.start-1):hit.end],sp+'.tempseed.fas','fasta')
 					out2=open(sp+'.tempTarget.fas','w')
-					for ll in samefam_hit:
-						d=SeqIO.write(ref_recs[ll.fields[3]],out2,'fasta')
+					for l in samefam_hit:d=SeqIO.write(ref_recs[l.fields[3]],out2,'fasta')
 					out2.close()
 					samefam_bed_txt=seq2seq_ortho_extraction(sp+'.tempseed.fas',sp+'.tempTarget.fas')
 					if not samefam_bed_txt=='':write_seq_from_bed_txt(samefam_bed_txt,out)
-				d=mapout.write(hit.chrom+'\t'+str(min_start)+'\t'+str(max_end)+'\t'+sp+'.hgt.'+str(order)+'.fas\n')
+				d=mapout.write(hit.chrom+'\t'+str(hit.start)+'\t'+str(hit.end)+'\t'+sp+'.hgt.'+str(order)+'.fas\n')
 				order=order+1
+				out.close()
 		else:
+			#This block can be directly output
+			raw_beds_txt=[seq_loc[j] for j in new_ids]
+			seqout_beds=aln_scaffolder(raw_beds_txt,split_block=False)
 			out=open(sp+'_HGTscanner_supporting_files'+'/'+sp+'.hgt.'+str(order)+'.fas','w')
 			#write other family
 			write_seq_from_bed_txt(seqout_beds,out)
@@ -1056,7 +1158,6 @@ elif args.m == 'mt':
 			q_rec_out.id = "query|" + q_rec_out.id
 			q_rec_out.description = ""
 			d = SeqIO.write(q_rec_out, out, 'fasta')
-			#d=SeqIO.write(q_recs[hit.chrom][(hit.start-1):hit.end],out,'fasta')
 			#write close relatives
 			subhit=pybedtools.BedTool(str(hit),from_string=True)
 			samefam_hit = find_intersect_bed(samefam_bed,subhit)
@@ -1203,6 +1304,142 @@ elif args.m == 'mt':
 				try:
 					#examine if this can be a VGT without rerooting the tree
 					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
+					t=correct_nd_support(t)
+					#VGT based on tip order: the query if nested within an ingroup cluster
+					if VGTFromTipOrder(t,target_tip,fam):
+						d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
+					else:
+						#root tree
+						ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
+						t=ncbi_ref_root(t,ncbi_tree)
+						#use tree topology to make decisions
+						receiver,donor_fam,donor_gen,donor_tips,bs=GetSister(t,target_tip,fam)
+						if VGTFromTipOrder(t,target_tip,fam):
+							d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
+							continue
+						if len(donor_fam)==1:
+							if donor_fam[0] in ingroup:
+								#VGT: query sister to an ingroup
+								d=out.write(l.strip()+'\t'+'\t'.join(['VGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+							else:
+								#check if the query is well nested within the donor family
+								alltips=[node.name for node in t]
+								qs_index = [j for j, name in enumerate(alltips) if name in receiver + donor_tips]
+								donor_fam_binary = [1 if j.split('|')[0] in donor_fam else 0 for j in alltips]
+								donor_fam_start,donor_fam_end,donor_fam_index=find_max_block_around_element(donor_fam_binary, min(qs_index), max(qs_index), max_diff_count=1)
+								nested_in_donor_fam = 0
+								if donor_fam_start<min(qs_index) or donor_fam_end>max(qs_index):nested_in_donor_fam = 1
+								if nested_in_donor_fam:
+									#High confidence HGT: a single donor family is involved and the q+sister nest within other species of the same donor family
+									if donor_fam_end==len(alltips):donor_fam_tips = alltips[donor_fam_start:]
+									else:donor_fam_tips = alltips[donor_fam_start:donor_fam_end+1]
+									fam_support = max_clade_support(target_tip,donor_fam_tips,t)
+									d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny: nested in donor family',bs])+'\n')
+								else:
+									#Putative HGT: one family that's not close relative, but phylogeny is not completely well nested within
+									d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+						else:
+							#multiple donor families
+							d=out.write(l.strip()+'\t'+'\t'.join(['inconclusive',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+				except ete3.parser.newick.NewickError:
+					receiver=target_tip
+					donor_fam=''
+					donor_gen=''
+					bs=''
+					d=out.write(l.strip()+'\t'+'\t'.join(['tree_not_found',receiver,';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+	out.close()
+	print(str(datetime.datetime.now())+'\tCompleted evaluation of HGT source. See summary file in '+sp+'.hgt.sum.tsv')
+
+########################
+#Standalone mt_eval
+elif args.m =='mt_eval':
+	#Evaluate the source of the region and update the summary file
+	current_time = datetime.datetime.now()
+	print(f"{current_time}\tReading and processing phylogenies from {len(sum_txt)-1} loci in {args.wd}/{sp}.mtpt.sum.tsv")
+	lines=open(f"{args.wd}/{sp}.alnmap.bed").readlines()
+	print(f"{current_time}\tReading and processing phylogenies from {len(lines)} loci in {args.wd}/{sp}.alnmap.bed")
+	out=open(f"{sp}.hgt.sum.tsv","w")
+	d=out.write('Query\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tMethod\tBS\n')
+	for l in lines:
+		i = l.split()[-1]
+		i = i.split('.')[2]
+		recs=open(f"{args.wd}/{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.fas").readlines()
+		allsp=[j[1:].strip() for j in recs if j.startswith('>')]
+		target_tip=[j for j in allsp if j.startswith('query')]
+		target_tip=target_tip[0]
+		allsp.remove(target_tip)
+		families=[j.split('|')[0] for j in allsp]
+		families=list(set(families))
+		try:families.remove(fam)
+		except ValueError:pass
+		if not families==['NA']:
+			try:families.remove('NA')
+			except ValueError:pass
+		ingroup_sp = [j for j in allsp if j.split('|')[0] in ingroup]
+		genera=[j.split('|')[1] for j in allsp if not j.startswith(fam)]
+		genera=list(set([j.split('_')[0] for j in genera]))
+		same_fam_sp_id=[j for j in allsp if j.startswith(fam)]
+		#same_fam_sp = list(set([j.split('|')[1] for j in same_fam_sp_id]))
+		#BLAST case 1: only one or two families are in the blast result
+		if len(families)==0:
+			#VGT: only the query family
+			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST: homology only found in ingroup','NA'])+'\n')
+		elif len(families)==1:
+			if families[0] in ingroup:
+				#VGT: the only other family is an ingroup
+				d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST: homology only found in ingroup','NA'])+'\n')
+			else:
+				#HGT: the only other family is not ingroup
+				receiver=';'.join([target_tip]+same_fam_sp_id)
+				donor_fam=families[0]
+				donor_gen=';'.join(genera)
+				d=out.write(f"{l.strip()}\tHigh confidence HGT\t{receiver}\t{donor_fam}\t{donor_gen}\tBLAST: exclusive homology in two families\tNA\n")
+		#>=2 other families
+		else:
+			#BLAST case 2: no other ingroup is in the tree, but there are at least two other families
+			if len(ingroup_sp)==0:
+				#check tree for donor
+				try:
+					t=Tree(f"{args.wd}/{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
+					t=correct_nd_support(t)
+					#reroot
+					ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
+					t=ncbi_ref_root(t,ncbi_tree)
+					receiver,donor_fam,donor_gen,donor_tips,bs=GetSister(t,target_tip,fam)
+					if not receiver=='NA':
+						#check if the query is well nested within the donor family
+						if len(donor_fam)==1:
+							alltips=[node.name for node in t]
+							qs_index = [j for j, name in enumerate(alltips) if name in receiver]
+							donor_fam_binary = [1 if j.split('|')[0] in donor_fam else 0 for j in alltips]
+							donor_fam_start,donor_fam_end,donor_fam_index=find_max_block_around_element(donor_fam_binary, min(qs_index), max(qs_index), max_diff_count=1)
+							nested_in_donor_fam = 0
+							if donor_fam_start<min(qs_index) or donor_fam_end>max(qs_index):nested_in_donor_fam = 1
+							if nested_in_donor_fam:
+								d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST+Phylogeny: no ingroup shows homology and nested in donor family',bs])+'\n')
+							else:
+								d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST: no other ingroup shows homology',bs])+'\n')
+						else:
+							d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST: no other ingroup shows homology',bs])+'\n')
+					else:
+						#the query was placed on root by mid-point rooting
+						d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join([target_tip]+same_fam_sp_id),';'.join(families),';'.join(genera),'BLAST: check rooting problem',bs])+'\n')
+				except ete3.parser.newick.NewickError:
+					receiver=target_tip
+					donor_fam=''
+					donor_gen=''
+					bs=''
+					if len(allsp)<4:
+						#too few tips to run a tree
+						donor_fam=families
+						donor_gen=genera
+						bs='NA'
+					d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',receiver,';'.join(donor_fam),';'.join(donor_gen),'BLAST: check rooting problem',bs])+'\n')
+			#Phylogeny to assess classification	
+			else:
+				try:
+					#examine if this can be a VGT without rerooting the tree
+					t=Tree(f"{args.wd}/{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
 					t=correct_nd_support(t)
 					#VGT based on tip order: the query if nested within an ingroup cluster
 					if VGTFromTipOrder(t,target_tip,fam):
