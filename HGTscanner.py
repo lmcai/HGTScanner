@@ -421,51 +421,6 @@ def find_intersect_bed(bedA,bedB):
 	intersect_unique_bed = pybedtools.BedTool('\n'.join(unique_lines), from_string=True)
 	return(intersect_unique_bed)
 
-def divide_long_range_based_on_cluster(bed_id):
-	data_lines = [seq_loc[i] for i in bed_id]
-	data_lines = [l.split() for l in data_lines]
-	df = pd.DataFrame(data_lines)
-	START = 1
-	END = 2
-	df.rename(columns={START:'start', END: 'end'}, inplace=True)
-	df["start"] = pd.to_numeric(df["start"], errors="coerce")
-	df["end"] = pd.to_numeric(df["end"], errors="coerce")
-	points = df[["start", "end"]].to_numpy()
-	N = len(points)
-	k_dim_tree = cKDTree(points)
-	neighbors = k_dim_tree.query_ball_point(points, r=50, p=np.inf)
-	min_count = int(0.2 * N)
-	dense_centers = [
-    	i for i, idxs in enumerate(neighbors)
-    	if len(idxs) >= min_count
-	]
-	clusters = []
-	visited = set()
-	for i in dense_centers:
-		if i in visited:continue
-		stack = [i]
-		cluster = set()
-		while stack:
-			j = stack.pop()
-			if j in visited:continue
-			visited.add(j)
-			cluster.add(j)
-			for k in neighbors[j]:
-				if k in dense_centers:
-					stack.append(k)
-		clusters.append(cluster)
-	cluster_info = []
-	for c in clusters:
-		pts = points[list(c)]
-		cluster_info.append({
-			"n_points": len(pts),
-			"x_center": np.median(pts[:, 0]),
-			"y_center": np.median(pts[:, 1]),
-			"x_range": (pts[:, 0].min(), pts[:, 0].max()),
-			"y_range": (pts[:, 1].min(), pts[:, 1].max())
-		})
-	return(cluster_info)
-
 def build_support_signal(df, bin_size=50):
     region_start = df.start.min()
     region_end = df.end.max()
