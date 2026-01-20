@@ -22,7 +22,10 @@ try:
     from statistics import mode
     import statistics as stats
     import pandas as pd
-    from scipy.spatial import cKDTree
+    #from scipy.spatial import cKDTree
+    from hmmlearn.hmm import PoissonHMM
+    #set np random seed to get a consistent outcome
+    np.random.seed(27)
     
     # Import standard modules after the checks are passed
     import subprocess
@@ -418,7 +421,7 @@ def find_intersect_bed(bedA,bedB):
 	intersect_unique_bed = pybedtools.BedTool('\n'.join(unique_lines), from_string=True)
 	return(intersect_unique_bed)
 
-def  divide_long_range_based_on_cluster(bed_id):
+def divide_long_range_based_on_cluster(bed_id):
 	data_lines = [seq_loc[i] for i in bed_id]
 	data_lines = [l.split() for l in data_lines]
 	df = pd.DataFrame(data_lines)
@@ -463,6 +466,158 @@ def  divide_long_range_based_on_cluster(bed_id):
 		})
 	return(cluster_info)
 
+def build_support_signal(df, bin_size=50):
+    region_start = df.start.min()
+    region_end = df.end.max()
+    bins = np.arange(region_start, region_end, bin_size)
+    support = np.zeros(len(bins), dtype=int)
+    for i, b in enumerate(bins):
+        b_end = b + bin_size
+        support[i] = np.sum(
+            (df.start < b_end) & (df.end > b)
+        )
+    return bins, support
+
+def fit_hmm(support):
+    """
+    Fit a 2-state Poisson HMM
+    """
+    X = support.reshape(-1, 1)
+    model = PoissonHMM(
+        n_components=2,
+        n_iter=200,
+        tol=1e-4,
+        verbose=False
+    )
+    model.fit(X)
+    # Use lambda_ for PoissonHMM instead of means_
+    rates = model.lambdas_.flatten()
+    block_state = np.argmax(rates)   # higher rate = BLOCK
+    bridge_state = 1 - block_state
+    return model, block_state, bridge_state
+
+def decode_states(model, support):
+    X = support.reshape(-1, 1)
+    states = model.predict(X)
+    return states
+
+def extract_blocks(bins, states, block_state, bin_size,
+                   min_block_len=80):
+    blocks = []
+    in_block = False
+    for i, s in enumerate(states):
+        if s == block_state and not in_block:
+            start = bins[i]
+            in_block = True
+        elif s != block_state and in_block:
+            end = bins[i]
+            if end - start >= min_block_len:
+                blocks.append((start, end))
+            in_block = False
+    # Handle tail
+    if in_block:
+        end = bins[-1] + bin_size
+        if end - start >= min_block_len:
+            blocks.append((start, end))
+    return blocks
+
+
+def hmm_split_intervals(bed_id,bin_size=50,min_block_len=80):
+	data_lines = [seq_loc[i] for i in bed_id]
+	data_lines = [l.split() for l in data_lines]
+	df = pd.DataFrame(data_lines)
+	df.rename(columns={0:'chrom', 1:'start', 2: 'end'}, inplace=True)
+	df["start"] = pd.to_numeric(df["start"], errors="coerce")
+	df["end"] = pd.to_numeric(df["end"], errors="coerce")
+	bins, support = build_support_signal(df, bin_size)
+	# Edge case: too few bins
+	if len(bins) < 10:
+		return [(df.start.min(), df.end.max())]
+	model, block_state, bridge_state = fit_hmm(support)
+	states = decode_states(model, support)
+	blocks = extract_blocks(
+		bins, states, block_state,
+		bin_size, min_block_len
+	)
+	# If HMM fails to split, return original
+	if len(blocks) == 0:
+		return [(df.start.min(), df.end.max())]
+	return blocks
+
+
+def find_short_candidates(df, max_len=80):
+    lengths = df.end - df.start
+    return df.index[lengths < max_len].tolist()
+
+def proportional_support(candidate, evidence_df):
+    c_start, c_end = candidate.start, candidate.end
+    left_total = 0
+    right_total = 0
+    for _, j in evidence_df.iterrows():
+        # must overlap candidate to count
+        if j.end <= c_start or j.start >= c_end:
+            continue
+        # left side contribution
+        left = max(0, min(j.end, c_start) - j.start)
+        # right side contribution
+        right = max(0, j.end - max(j.start, c_end))
+        left_total += left
+        right_total += right
+    return left_total, right_total
+
+def choose_merge_direction(candidate, left, right, evidence_df):
+    left_prop, right_prop = proportional_support(candidate, evidence_df)
+    if left_prop > right_prop:
+        return "left"
+    if right_prop > left_prop:
+        return "right"
+    # tie-breaker: merge to larger neighbor
+    left_len = left.end - left.start
+    right_len = right.end - right.start
+    return "left" if left_len >= right_len else "right"
+
+def merge_short_intervals(primary_bed, evidence_ids, max_len=80):
+	df = pd.DataFrame([[j.chrom,j.start,j.end] for j in primary_bed])
+	df.rename(columns={0:'chrom', 1:'start', 2: 'end'}, inplace=True)
+	df["start"] = pd.to_numeric(df["start"], errors="coerce")
+	df["end"] = pd.to_numeric(df["end"], errors="coerce")
+	df = df.copy().reset_index(drop=True)
+	data_lines = [seq_loc[i] for i in evidence_ids]
+	data_lines = [l.split() for l in data_lines]
+	evidence_df = pd.DataFrame(data_lines)
+	evidence_df.rename(columns={0:'chrom', 1:'start', 2: 'end'}, inplace=True)
+	evidence_df["start"] = pd.to_numeric(df["start"], errors="coerce")
+	evidence_df["end"] = pd.to_numeric(df["end"], errors="coerce")
+	to_drop = set()
+	short_idxs = find_short_candidates(df, max_len)
+	for j in short_idxs:
+		if j in to_drop:continue
+		candidate = df.loc[j]
+		if j == 0:
+			# merge right
+			df.at[j + 1, "start"] = candidate.start
+			to_drop.add(j)
+			continue
+		if j == len(df) - 1:
+			# merge left
+			df.at[j - 1, "end"] = candidate.end
+			to_drop.add(j)
+			continue
+		left = df.loc[j - 1]
+		right = df.loc[j + 1]
+		direction = choose_merge_direction(
+			candidate, left, right, evidence_df
+		)
+		if direction == "left":
+			df.at[j - 1, "end"] = candidate.end
+		else:
+			df.at[j + 1, "start"] = candidate.start
+		to_drop.add(j)
+	df = df.drop(index=list(to_drop)).reset_index(drop=True)
+	return pybedtools.BedTool.from_dataframe(df)
+
+############
+#Classification related function
 def ncbi_ref_root(tree,reference_phylo):
 	all_family=[node.name for node in tree]
 	all_family = [i.split('|')[0] for i in all_family if not i.startswith('query')]
@@ -1053,15 +1208,23 @@ elif args.m == 'mt':
 		###Evaluate whether blocks needs to be further divided up
 		if completeness < 0.15 and num_long_hit < 6 and len(new_ids)>100 and hit.end-hit.start> 600:
 			#This block needs to be split up
-			#use DBSCAN-like clustering to identify repeated fragment regions
-			major_fragments = divide_long_range_based_on_cluster(new_ids)
-			if len(major_fragments)>0:
+			to_spilt=1
+			#use HMM to identify high confidence homology ranges
+			major_fragments = hmm_split_intervals(new_ids)
+			#print(order, major_fragments)
+			if major_fragments[-1][1]>hit.end:major_fragments[-1]=(major_fragments[-1][0],hit.end)
+			#if there is only 1 block and both ends close to the raw edges
+			if len(major_fragments)==1:
+				if major_fragments[0][0]-hit.start<100 and hit.end-major_fragments[0][1]<100:to_spilt=0
+			if to_spilt:
 				#find some small blocks
-				new_individual_bed_txt = '\n'.join([f"{hit.fields[0]}\t{int(j['x_center'])}\t{int(j['y_center'])}" for j in major_fragments])
+				new_individual_bed_txt = '\n'.join([f"{hit.fields[0]}\t{j[0]}\t{j[1]}" for j in major_fragments])
 				new_individual_bed = pybedtools.BedTool(new_individual_bed_txt, from_string=True)  # internal blocks
 				hit_bed = pybedtools.BedTool([hit])
 				remaining_bed = hit_bed.subtract(new_individual_bed)
 				all_new_bed = remaining_bed.cat(new_individual_bed, postmerge=False).sort()
+				#merge small intervals <100 bp
+				all_new_bed = merge_short_intervals(all_new_bed,new_ids,100)
 				#rerank best hits within each individual block
 				raw_beds_txt=[seq_loc[j] for j in ids]
 				raw_beds=pybedtools.BedTool(''.join(raw_beds_txt), from_string=True)
@@ -1121,7 +1284,7 @@ elif args.m == 'mt':
 					order=order+1
 					out.close()
 			else:
-				#DBSCAN-like method was unable to divide it, output the whole chunk
+				#HMM method was unable to divide it, output the whole chunk
 				raw_beds_txt=[seq_loc[j] for j in new_ids]
 				seqout_beds=aln_scaffolder(raw_beds_txt,split_block=False)
 				out=open(sp+'_HGTscanner_supporting_files'+'/'+sp+'.hgt.'+str(order)+'.fas','w')
@@ -1186,9 +1349,9 @@ elif args.m == 'mt':
 	#alignment and phylogenetic reconstruction
 	#############
 	if args.notree:
-		print(f"{current_time}\tStart alignment for #{order} loci")
+		print(f"{current_time}\tStart alignment for #{order-1} loci")
 	else:
-		print(f"{current_time}\tStart alignment and FastTree phylogeny for #{order} loci")
+		print(f"{current_time}\tStart alignment and FastTree phylogeny for #{order-1} loci")
 	for i in range(1,order):
 		print(f"{current_time}\tWorking on loci #{i}...", end='\r')
 		#alignment
@@ -1200,7 +1363,8 @@ elif args.m == 'mt':
 			for rec in SeqIO.parse(fasta_in, "fasta"):
 				if rec.id.startswith("query|"):d=SeqIO.write(rec, t1, "fasta")
 				else:d=SeqIO.write(rec, t2, "fasta")
-		os.system(f"mafft --quiet --adjustdirection --6merpair --addfragments {temp2} {temp1} | sed 's/_R_//g' > {aln_out}")
+		os.system(f"mafft --quiet --adjustdirection --6merpair --keeplength --addfragments {temp2} {temp1} | sed 's/_R_//g' > {aln_out}")
+		#os.system(f"mafft --quiet --adjustdirection --6merpair --addfragments {temp2} {temp1} | sed 's/_R_//g' > {aln_out}")
 		os.remove(temp1)
 		os.remove(temp2)
 		records = list(SeqIO.parse(aln_out, "fasta"))
