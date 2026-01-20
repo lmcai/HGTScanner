@@ -36,17 +36,20 @@ Selaginellaceae:4
 (
 (
 (
+(
 Amborellaceae:4,
 (
-Trimeniaceae:4,
-Austrobaileyaceae:4,
-Schisandraceae:4
-)Austrobaileyales:4,
 (
 Hydatellaceae:4,
 Cabombaceae:4,
 Nymphaeaceae:4
 )Nymphaeales:4,
+(
+(
+Trimeniaceae:4,
+Austrobaileyaceae:4,
+Schisandraceae:4
+)Austrobaileyales:4,
 (
 Ceratophyllaceae:4,
 Chloranthaceae:4,
@@ -597,6 +600,8 @@ Magnoliaceae:4
 )Magnoliales:4
 )Magnoliidae:4
 )Mesangiospermae:4
+)
+)
 )Magnoliopsida:4,
 (
 (
@@ -1130,4 +1135,4 @@ Dunaliellaceae:4
 )Chlorophyceae:4
 )'core chlorophytes':4
 )Chlorophyta:4
-)Viridiplantae:4;
+))Viridiplantae:4;
