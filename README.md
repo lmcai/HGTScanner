@@ -204,7 +204,7 @@ options:
   -h, --help           show this help message and exit
   -tsv tsv_file        summary tsv file
   -bed bed_file        annotation bed file
-  -o output_file       putput file name
+  -o output_file       output file name
   -l wrapping_len(kb)  genome wrapping length in kb
 ```
 
@@ -254,7 +254,7 @@ Bignoniaceae	ingroup
 c. Custom plastid sequence `pt.fasta`. The header should follow the format `Family|Genus_species|ID`:
 
 ```
->Orobanchaceae|Aeginetia_indica|Aeginetia_indica
+>Orobanchaceae|Rehmannia_glutinosa|MW013795.1
 ATATCATTATGATAAAATTGGTAAATTAATGCTGTTATGATGAAATTGGTAGACATGTTGCTTTTAGACAGCAATATTAA
 ...
 >Orobanchaceae|Conopholis_alpina|LM013
@@ -304,7 +304,15 @@ e. `Ain_HGTscanner_supporting_files`: a folder containing the raw sequence `.fas
 
 After examining the `Ain.mtpt.sum.tsv`, locus #1, 15, 26, 28 were classified as **native MTPT**, locus #14 and 18 are **high confidence alien MTPTs** from Poaceae. These loci should be masked in the next step. Others are either mitochondrial transfers or inconclusive.
 
-### 4. Input preparation for mt HGT
+### 4. MTPT visualization
+
+Type the following command to visualize MTPT annotation, wrap the genome every 100 kb:
+```
+python plot_annotation.py -tsv Ain.mtpt.sum.tsv -l 100 -o Ain.mtpt.pdf
+```
+The PDF file can be viewed in `example/Ain.mtpt.pdf`
+
+### 5. Input preparation for mt HGT
 
 a. The query mitochondrial genome assembly `Aeginetia_indica.fas` 
 
@@ -320,9 +328,57 @@ Ain_1	39819	40223	nad3
 ...
 ```
 
-### 5. Running mt HGT identification
+### 6. Running mt HGT identification
 
 Use the following command to identify homology, scaffold alignment, build phylogeny, and evaluate HGT:
 ```
 python HGTscanner.py -m mt -q Aeginetia_indica.fas  -o Ain -taxon taxon.txt -b Ain.mask.bed
 ```
+
+### 7. Output from mt HGT identification
+
+The following output files were generated
+
+a. Summary spreadsheet `Ain.hgt.sum.tsv` with the following columns:
+- Query: query sequence name
+- Start: Start position of the loci 
+- End: End position of the loci
+- Alignment: numbered ID of the locus
+- Classification: classification based on the criteria presented in Cai and Cohen (2026).
+- Recipient: Recipient lineages for HGT. May contain multiple species if the HGT is ancient and shared by >1 species.
+- Donor_family: List of families in the immediate sister of the query, seperated by ';' 
+- Donor_genus: List of genera in the immediate sister of the query, seperated by ';' 
+- Donor_species: List of species in the immediate sister of the query, seperated by ';'
+- Method: Criteria used to evaluate hypothesis of HGT. The values may be 'Phylogeny: nested in donor family', 'BLAST: exclusive homology in two families', 'BLAST+Phylogeny: no ingroup shows homology and nested in donor family', etc.
+- BS: Branch support for the placement of the query sequence. May range 0-1 for FastTree and 0-100 for IQ-TREE and RAxML.
+- Ingroup_seq_coverage: Median coverage of the query loci among ingroups
+- Ingroup_seq_fragment: Median number of fragments constitute the query loci among ingroups
+- Donor_seq_coverage: Median coverage of the query loci among the donor lineage
+- Donor_seq_fragment: Median number of fragments constitute the query loci among the donor lineage
+
+b. `Ain.hgt.blast`: the original BLASTN result
+
+c. `Ain.hgt.bed`: a bed file of BLASTN hits ordered by position and with added taxon information. The 11 columns contain the following information: 
+- (1) query sequence ID
+- (2) query start
+- (3) query end
+- (4) hit sequence ID
+- (5) hit start
+- (6) hit end
+- (7) bit score
+- (8) e-value
+- (9) hit species
+- (10) hit family
+- (11) unique ID for the BLAST record
+
+d. `Ain.hgt.merged.bed`: a bed file for BLAST record IDs contained in each locus. The {i}th row represents the homologous sequence locations for {i}th locus in the summary spreadsheet. The list of numbers in the fourth column represents the unique BLAST record ID in `Ain.hgt.bed`.
+
+e. `Ain_HGTscanner_supporting_files`: a folder containing the raw sequence `.fas`, alignment `.aln.fas`, and phylogeny `.treefile` for each locus. Each sequence is named as `Family|Genus_species|ID_start1_end1+start2_end2...`. If the end position is smaller than the start position, it means this fragment is reverse compliment relative to the query sequence.
+
+### 8. Visualize mt HGT
+Type the following command to visualize MTPT annotation, wrap the genome every 100 kb:
+```
+python plot_annotation.py -tsv Ain.hgt.sum.tsv -l 100 -o Ain.hgt.pdf
+```
+The PDF file can be viewed in `example/Ain.hgt.pdf`
+
