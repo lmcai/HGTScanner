@@ -226,8 +226,7 @@ The following command can be used:
 ```
 python plot_annotation.py -tsv sp.ann.bed -l 100 -o sp.mtpt.pdf
 ```
-
-
+# <img src="/images/Ain.hgt.png" > 
 ## IV. Complete tutorial for MTPT and HGT detection in Aeginetia
 
 Here, we demonstrate how to identify MTPT and HGT in Aeginetia indica, which is an Orobanchaceae parasitic plant specialized in grasses. All input and output files can be found in the `/example`.
