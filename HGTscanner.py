@@ -741,7 +741,16 @@ def correct_nd_support(tree):
 			else:nd.support = 0.0 # or None
 			nd.name = ""
 	return(tree)
-        
+
+def coverage_fragmentation_metric(aln):
+	coverage={}
+	fragmentation={}
+	for rec in aln:
+		fragmentation[rec.id]=rec.id.count('+')+1
+		coverage[rec.id]=1-(float(rec.seq.count('-'))/len(rec.seq))
+	return(coverage, fragmentation)
+
+   
 ####################################
 #III. MTPT mode
 ###################################
@@ -1342,12 +1351,13 @@ elif args.m == 'mt':
 	#classify mt HGT
 	lines=open(sp+'.alnmap.bed').readlines()
 	out=open(f"{sp}.hgt.sum.tsv","w")
-	d=out.write('Query\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tMethod\tBS\n')
+	d=out.write('Query\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tDonor_species\tMethod\tBS\tIngroup_seq_coverage\tIngroup_seq_fragment\tDonor_seq_coverage\tDonor_seq_fragment\n')
 	for l in lines:
 		i = l.split()[-1]
 		i = i.split('.')[2]
-		recs=open(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.fas").readlines()
-		allsp=[j[1:].strip() for j in recs if j.startswith('>')]
+		recs=SeqIO.parse(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas","fasta")
+		coverage_metric, fragmentation_metric = coverage_fragmentation_metric(recs)
+		allsp=[j for j in coverage_metric.keys()]
 		target_tip=[j for j in allsp if j.startswith('query')]
 		target_tip=target_tip[0]
 		allsp.remove(target_tip)
@@ -1359,6 +1369,9 @@ elif args.m == 'mt':
 			try:families.remove('NA')
 			except ValueError:pass
 		ingroup_sp = [j for j in allsp if j.split('|')[0] in ingroup]
+		ingroup_coverage = [coverage_metric[j] for j in ingroup_sp]
+		ingroup_fragmentation = [fragmentation_metric[j] for j in ingroup_sp]
+		non_ingroup_sp = [j for j in allsp if not j.split('|')[0] in ingroup]
 		genera=[j.split('|')[1] for j in allsp if not j.startswith(fam)]
 		genera=list(set([j.split('_')[0] for j in genera]))
 		same_fam_sp_id=[j for j in allsp if j.startswith(fam)]
@@ -1366,17 +1379,20 @@ elif args.m == 'mt':
 		#BLAST case 1: only one or two families are in the blast result
 		if len(families)==0:
 			#VGT: only the query family
-			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST: homology only found in ingroup','NA'])+'\n')
+			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','BLAST: homology only found in ingroup','NA','NA','NA','NA','NA'])+'\n')
 		elif len(families)==1:
 			if families[0] in ingroup:
 				#VGT: the only other family is an ingroup
-				d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','BLAST: homology only found in ingroup','NA'])+'\n')
+				d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','BLAST: homology only found in ingroup','NA','NA','NA','NA','NA'])+'\n')
 			else:
 				#HGT: the only other family is not ingroup
 				receiver=';'.join([target_tip]+same_fam_sp_id)
 				donor_fam=families[0]
 				donor_gen=';'.join(genera)
-				d=out.write(f"{l.strip()}\tHigh confidence HGT\t{receiver}\t{donor_fam}\t{donor_gen}\tBLAST: exclusive homology in two families\tNA\n")
+				donor_sp=';'.join(non_ingroup_sp)
+				donor_coverage = [coverage_metric[j] for j in non_ingroup_sp]
+				donor_fragmentation = [fragmentation_metric[j] for j in non_ingroup_sp]
+				d=out.write(f"{l.strip()}\tHigh confidence HGT\t{receiver}\t{donor_fam}\t{donor_gen}\t{donor_sp}\tBLAST: exclusive homology in two families\tNA\t{median(ingroup_coverage)}\t{median(ingroup_fragmentation)}\t{median(donor_coverage)}\t{median(donor_fragmentation)}\n")
 		#>=2 other families
 		else:
 			#BLAST case 2: no other ingroup is in the tree, but there are at least two other families
@@ -1389,6 +1405,8 @@ elif args.m == 'mt':
 					ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
 					t=ncbi_ref_root(t,ncbi_tree)
 					receiver,donor_fam,donor_gen,donor_tips,bs=GetSister(t,target_tip,fam)
+					donor_coverage = [coverage_metric[j] for j in donor_tips]
+					donor_fragmentation = [fragmentation_metric[j] for j in donor_tips]
 					if not receiver=='NA':
 						#check if the query is well nested within the donor family
 						if len(donor_fam)==1:
@@ -1399,14 +1417,14 @@ elif args.m == 'mt':
 							nested_in_donor_fam = 0
 							if donor_fam_start<min(qs_index) or donor_fam_end>max(qs_index):nested_in_donor_fam = 1
 							if nested_in_donor_fam:
-								d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST+Phylogeny: no ingroup shows homology and nested in donor family',bs])+'\n')
+								d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'BLAST+Phylogeny: no ingroup shows homology and nested in donor family',bs,str(median(ingroup_coverage)),str(median(ingroup_fragmentation)),str(median(donor_coverage)),str(median(donor_fragmentation))])+'\n')
 							else:
-								d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST: no other ingroup shows homology',bs])+'\n')
+								d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'BLAST: no other ingroup shows homology',bs,str(median(ingroup_coverage)),str(median(ingroup_fragmentation)),str(median(donor_coverage)),str(median(donor_fragmentation))])+'\n')
 						else:
-							d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'BLAST: no other ingroup shows homology',bs])+'\n')
+							d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'BLAST: no other ingroup shows homology',bs,str(median(ingroup_coverage)),str(median(ingroup_fragmentation)),str(median(donor_coverage)),str(median(donor_fragmentation))])+'\n')
 					else:
 						#the query was placed on root by mid-point rooting
-						d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join([target_tip]+same_fam_sp_id),';'.join(families),';'.join(genera),'BLAST: check rooting problem',bs])+'\n')
+						d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join([target_tip]+same_fam_sp_id),';'.join(families),';'.join(genera),';'.join(non_ingroup_sp),'BLAST: check rooting problem',bs,'NA','NA','NA','NA'])+'\n')
 				except ete3.parser.newick.NewickError:
 					receiver=target_tip
 					donor_fam=''
@@ -1417,7 +1435,7 @@ elif args.m == 'mt':
 						donor_fam=families
 						donor_gen=genera
 						bs='NA'
-					d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',receiver,';'.join(donor_fam),';'.join(donor_gen),'BLAST: check rooting problem',bs])+'\n')
+					d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',receiver,';'.join(donor_fam),';'.join(donor_gen),';'.join(non_ingroup_sp),'BLAST: check rooting problem',bs,'NA','NA','NA','NA'])+'\n')
 			#Phylogeny to assess classification	
 			else:
 				try:
@@ -1426,20 +1444,22 @@ elif args.m == 'mt':
 					t=correct_nd_support(t)
 					#VGT based on tip order: the query if nested within an ingroup cluster
 					if VGTFromTipOrder(t,target_tip,fam):
-						d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
+						d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','Phylogeny','NA','NA','NA','NA','NA'])+'\n')
 					else:
 						#root tree
 						ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
 						t=ncbi_ref_root(t,ncbi_tree)
 						#use tree topology to make decisions
 						receiver,donor_fam,donor_gen,donor_tips,bs=GetSister(t,target_tip,fam)
+						donor_coverage = [coverage_metric[j] for j in donor_tips]
+						donor_fragmentation = [fragmentation_metric[j] for j in donor_tips]
 						if VGTFromTipOrder(t,target_tip,fam):
-							d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','Phylogeny','NA'])+'\n')
+							d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','Phylogeny','NA','NA','NA','NA','NA'])+'\n')
 							continue
 						if len(donor_fam)==1:
 							if donor_fam[0] in ingroup:
 								#VGT: query sister to an ingroup
-								d=out.write(l.strip()+'\t'+'\t'.join(['VGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+								d=out.write(l.strip()+'\t'+'\t'.join(['VGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny',bs,'NA','NA','NA','NA'])+'\n')
 							else:
 								#check if the query is well nested within the donor family
 								alltips=[node.name for node in t]
@@ -1453,19 +1473,16 @@ elif args.m == 'mt':
 									if donor_fam_end==len(alltips):donor_fam_tips = alltips[donor_fam_start:]
 									else:donor_fam_tips = alltips[donor_fam_start:donor_fam_end+1]
 									fam_support = max_clade_support(target_tip,donor_fam_tips,t)
-									d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny: nested in donor family',bs])+'\n')
+									d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',bs,str(median(ingroup_coverage)),str(median(ingroup_fragmentation)),str(median(donor_coverage)),str(median(donor_fragmentation))])+'\n')
 								else:
 									#Putative HGT: one family that's not close relative, but phylogeny is not completely well nested within
-									d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+									d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny',bs,str(median(ingroup_coverage)),str(median(ingroup_fragmentation)),str(median(donor_coverage)),str(median(donor_fragmentation))])+'\n')
 						else:
 							#multiple donor families
-							d=out.write(l.strip()+'\t'+'\t'.join(['inconclusive',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+							d=out.write(l.strip()+'\t'+'\t'.join(['inconclusive',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny',bs,str(median(ingroup_coverage)),str(median(ingroup_fragmentation)),str(median(donor_coverage)),str(median(donor_fragmentation))])+'\n')
 				except ete3.parser.newick.NewickError:
 					receiver=target_tip
-					donor_fam=''
-					donor_gen=''
-					bs=''
-					d=out.write(l.strip()+'\t'+'\t'.join(['tree_not_found',receiver,';'.join(donor_fam),';'.join(donor_gen),'Phylogeny',bs])+'\n')
+					d=out.write(l.strip()+'\t'+'\t'.join(['tree_not_found',receiver,'NA','NA','NA','Phylogeny','NA','NA','NA','NA','NA'])+'\n')
 	out.close()
 	print(str(datetime.datetime.now())+'\tCompleted evaluation of HGT source. See summary file in '+sp+'.hgt.sum.tsv')
 
