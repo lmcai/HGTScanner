@@ -18,6 +18,7 @@ dependencies:
   - pybedtools       # for genomic interval operations
   - numpy            # for numerical calculations
   - pandas           # for table processing and data analysis
+  - hmmlearn
 
   # Optional useful tools
   - pip
