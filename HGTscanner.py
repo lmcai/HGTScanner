@@ -261,7 +261,7 @@ def mask_fasta_with_bed(fasta_file, bed_file, output_file):
 		recs[k]=str(sequences[k].seq)
 	for l in bed:
    		sequence_id = l.split()[0]
-   		start = int(l.split()[1])
+   		start = max(1,int(l.split()[1]))
    		end = int(l.split()[2])
    		sequence = recs[sequence_id]
    		masked_sequence = sequence[:(start-1)] + "N" * (end - start + 1) + sequence[end:]
@@ -1282,6 +1282,7 @@ elif args.m == 'mt':
 			write_seq_from_bed_txt(seqout_beds,out)
 			#write query
 			q_rec_out = q_recs[hit.chrom][(hit.start-1):hit.end]
+			#print(hit.chrom, hit.start-1, hit.end)
 			q_rec_out.id = "query|" + q_rec_out.id
 			q_rec_out.description = ""
 			d = SeqIO.write(q_rec_out, out, 'fasta')
@@ -1290,7 +1291,7 @@ elif args.m == 'mt':
 			samefam_hit = find_intersect_bed(samefam_bed,subhit)
 			if not samefam_hit.count()==0:
 				#write sequences from close relatives if they are not empty
-				d=SeqIO.write(q_recs[hit.chrom][(hit.start-1):hit.end],sp+'.tempseed.fas','fasta')
+				d=SeqIO.write(q_rec_out,sp+'.tempseed.fas','fasta')
 				out2=open(sp+'.tempTarget.fas','w')
 				for l in samefam_hit:d=SeqIO.write(ref_recs[l.fields[3]],out2,'fasta')
 				out2.close()
