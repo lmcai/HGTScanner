@@ -1118,7 +1118,7 @@ elif args.m == 'mt':
 	id2fam={}
 	taxon_ref=open(script_path+'/database/mt_Viridiplantae_taxonomy.tsv').readlines()
 	for l in taxon_ref:
-		id2sp[l.split('\t')[0]]=l.split('\t')[-1].strip()
+		id2sp[l.split('\t')[0]]=l.split('\t')[8].strip()
 		id2fam[l.split('\t')[0]]=l.split('\t')[6]
 	for l in x:
 		try:
