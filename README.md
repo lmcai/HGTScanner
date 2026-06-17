@@ -90,7 +90,7 @@ options:
   -wd dir             Path to working dir where *.sum.tsv and *_HGTscanner_supporting_files are located.
   -b bed_file         A bed file for regions to be masked
   -e evalue           BLAST evalue threshold
-  -notree         No FastTree phylogeny inference
+  -notree         	  No FastTree phylogeny inference
 ```
 
 ### 1. MTPT detection
