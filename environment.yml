@@ -11,6 +11,7 @@ dependencies:
   - blast            # includes blastn, makeblastdb, etc.
   - iqtree           # phylogenetic inference
   - fasttree         # added: FastTree from bioconda
+  - mafft            # multiple sequence alignment
 
   # Python libraries
   - biopython        # for Bio.SeqIO and sequence handling
