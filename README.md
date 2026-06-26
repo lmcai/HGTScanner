@@ -104,8 +104,8 @@ python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy
 The list of species included in our built-in plastid Viridiplantae database can be found [here](/database/pt_Viridiplantae_taxonomy.tsv). One representative species per genus (totalling 3722) has been selected from the entire NCBI plastid reference genome database. Users can add more species from the **built-in** database by:
 ```
 #Add species to the default database
-python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt]
-#Use a user-selected Genbank accessions as BLAST database (instead of adding to the default db)
+python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt] -pt_add_seq [more_seq.fas]
+#Use a user-selected Genbank accessions as BLAST database **instead** of adding to the default db
 python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_fix_id [genbank_id.txt]
 ```
 
