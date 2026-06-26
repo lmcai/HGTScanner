@@ -68,12 +68,12 @@ script_path = os.path.abspath(sys.argv[0])
 script_path = os.path.dirname(script_path)
 
 def id2seq(ids,output_file):
-	recs=SeqIO.parse(script_path+'/database/Viridiplantae_pt_aug2025.genome.fas','fasta')
+	recs=SeqIO.parse(script_path+'/database/Viridiplantae_pt_aug2025.complete.fas','fasta')
 	out=open(output_file,'a')
 	for rec in recs:
 		id=rec.id
 		if id.split('.')[0] in ids:d=SeqIO.write(rec,out,'fasta')
-		out.close()
+	out.close()
 
 if args.m =='mtpt':
 	#mtpt mode
@@ -99,7 +99,7 @@ if args.m =='mtpt':
 		print(f"{datetime.datetime.now()}\tThe query belongs to family: {fam}; The following are close relatives: {', '.join(ingroup)}")
 		if args.pt_fix_id:
 			#Use custom list of pt db
-			id_list=open(args.pt_fix_id)
+			id_list=open(args.pt_fix_id).readlines()
 			id2seq([i.strip() for i in id_list],sp+'.pt_db.fas')
 			print(str(datetime.datetime.now())+'\tUsing custom list of plastid reference: '+args.pt_fix_id)
 		else:
@@ -114,17 +114,29 @@ if args.m =='mtpt':
 				headers=open(pt_reference).readlines()
 				headers=[i[1:] for i in headers if i.startswith('>')]
 				if all(i.count("|") == 2 for i in headers):
-					S='cat '+pt_reference+' '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas >'+sp+'.pt_db.fas'
-					os.system(S)
 					add_seq=1
+					S='cat '+pt_reference+' >'+sp+'.pt_db.fas'
+					os.system(S)
 				else:
 					sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+pt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
 			if args.pt_add_id:
 				add_seq=1
 				print(str(datetime.datetime.now())+'\tAdd custom list of plastid based on '+args.pt_add_id+' in addition to the NCBI Viridiplantae plastid database')
-				id2seq([i.strip() for i in id_list],sp+'.pt_db.fas')
+				id_list=open(args.pt_add_id).readlines()
+				#check overlap with default genus level sampling
+				id_list=[i.strip() for i in id_list]
+				default_id=open(script_path+'/database/pt_Viridiplantae_taxonomy.tsv').readlines()
+				default_id=[i.strip() for i in default_id]
+				default_id=[i.split()[0] for i in default_id if i.endswith('TRUE')]
+				overlap_id=[i for i in id_list if i in default_id]
+				print(str(datetime.datetime.now())+'\tThe following IDs are already in the default database, removing to avoid duplication: '+','.join(overlap_id))
+				id_list=[i for i in id_list if not i in overlap_id]
+				id2seq(id_list,sp+'.pt_db.fas')
+			if add_seq==1:
 				S='cat '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas >>'+sp+'.pt_db.fas'
-			if add_seq==0:
+				os.system(S)
+			else:
+				#no additional seq added
 				print(str(datetime.datetime.now())+'\tNo custom plastid reference provided. Using default...')
 				S='cp '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas '+sp+'.pt_db.fas'
 				os.system(S)				
@@ -1108,7 +1120,7 @@ elif args.m == 'mt':
 	evalue=1e-20
 	if args.e:evalue=args.e
 	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate HGT with evalue threshold of '+str(evalue))
-	S='blastn -task dc-megablast -query '+sp+'.mt_db.fas -db '+sp+'.mt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mt.blast'
+	S='blastn -task dc-megablast -num_threads 4 -query '+sp+'.mt_db.fas -db '+sp+'.mt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mt.blast'
 	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#Add taxonomic information to each hit at species and family level to help identify syntenic blocks
