@@ -27,7 +27,7 @@ Examples of what HGTScanner can do :smiley: :
 
 - Identify ancient, **shared** HGT among closely related species using phylogeny.
    
-- Identify the genomic location, donor lineage (to family/genus level) of mitochondrial **plastid** DNAs in a group of plant species. No prior knowledge of the plastid DNA donor is known.
+- Identify the genomic location, donor lineage (to family/genus level) of **mitochondrial plastid DNAs** in a group of plant species. No prior knowledge of the plastid DNA donor is known.
 
 What is very challenging and **discoraged use** of HGTScanner :imp::
 
