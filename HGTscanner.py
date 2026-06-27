@@ -59,6 +59,7 @@ parser.add_argument('-b', metavar='bed_file', help='A bed file for regions to be
 parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
 parser.add_argument('-t', metavar='threads', help='number of threads for blast')
 parser.add_argument('-notree', action='store_true', help='No FastTree phylogeny inference')
+parser.add_argument('-fungi', action='store_true', help='Add fungal mtDNA to evaluate HGT')
 
 ####################################
 #I. pass argument values, check required arguments and input file format
@@ -235,7 +236,7 @@ elif args.m == 'mt':
 		if args.mt_add_seq:
 			#add custom references to database
 			mt_reference = args.mt_add_seq
-			print(str(datetime.datetime.now())+'\tAdded custom mitochondrial reference '+mt_reference+' to the NCBI Viridiplantae mitochondrial database')
+			print(str(datetime.datetime.now())+'\tAdding custom mitochondrial reference '+mt_reference+' to the NCBI Viridiplantae mitochondrial database')
 			print(str(datetime.datetime.now())+'\tChecking file formats for '+mt_reference)
 			#check header of the input seq
 			headers=open(mt_reference).readlines()
@@ -243,12 +244,23 @@ elif args.m == 'mt':
 			if all(i.count("|") == 2 for i in headers):
 				S='cat '+mt_reference+' '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas >'+sp+'.mt_db.fas'
 				os.system(S)
+				if args.fungi:
+					#add fungal mtDNA
+					print(str(datetime.datetime.now())+'\t-fungi invoked. Adding fungal mitochondrial reference to the NCBI Viridiplantae mitochondrial database')
+					S='cat '+script_path+'/database/Fungi_mt_apr2026.genome.fas >>'+sp+'.mt_db.fas'
+					os.system(S)
 			else:
 				sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+pt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
 		else:
-			S='cp '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas '+sp+'.mt_db.fas'
-			os.system(S)
-			print(str(datetime.datetime.now())+'\tNo custom mitochondrial reference provided. Will use the built-in Viridiplantae mitochondrial database')
+			if args.fungi:
+				#add fungal mtDNA
+				print(str(datetime.datetime.now())+'\t-fungi invoked. Adding fungal mitochondrial reference')
+				S='cat '+script_path+'/database/Fungi_mt_apr2026.genome.fas '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas >'+sp+'.mt_db.fas'
+				os.system(S)
+			else:
+				S='cp '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas '+sp+'.mt_db.fas'
+				os.system(S)
+				print(str(datetime.datetime.now())+'\tNo custom mitochondrial reference provided. Will use the built-in Viridiplantae mitochondrial database')
 	except TypeError:
 		print('############################################################\n\
 #ERROR:Insufficient arguments!\n\
@@ -777,11 +789,11 @@ if args.m =='mtpt':
 	#blast
 	if args.e:evalue=args.e
 	else:evalue=1e-40
-	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate MTPT with e-value threshold of '+str(evalue))
-	#make the query sequence as the database otherwise many potential hits from the Viridiplantae get ignored by blastn if the other way around
-	os.system(f"makeblastdb -in {query} -out {sp}.mtpt -dbtype nucl >/dev/null")
 	if args.t:num_threads=args.t
 	else:num_threads='1'
+	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate MTPT with e-value threshold of '+str(evalue)+' and '+num_threads+' threads')
+	#make the query sequence as the database otherwise many potential hits from the Viridiplantae get ignored by blastn if the other way around
+	os.system(f"makeblastdb -in {query} -out {sp}.mtpt -dbtype nucl >/dev/null")
 	S='blastn -task dc-megablast -num_threads '+num_threads+'-query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
 	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
@@ -1128,11 +1140,11 @@ elif args.m == 'mt':
 	##################
 	evalue=1e-20
 	if args.e:evalue=args.e
-	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate HGT with evalue threshold of '+str(evalue))
 	num_threads='1'
 	if args.t:num_threads=args.t
+	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate HGT with evalue threshold of '+str(evalue)+' and '+num_threads+' threads')
 	S='blastn -task dc-megablast -num_threads '+num_threads+' -query '+sp+'.mt_db.fas -db '+sp+'.mt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mt.blast'
-	#os.system(S)
+	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#Add taxonomic information to each hit at species and family level to help identify syntenic blocks
 	x=open(sp+'.mt.blast').readlines()
@@ -1185,7 +1197,7 @@ elif args.m == 'mt':
 	out=open(sp+'.mt.merged.bed','w')
 	_ =out.write(str(combined_bed))
 	out.close()
-	print(str(datetime.datetime.now())+'\tFound '+str(len(otherfam_merged)+len(pure_ingroup_txt))+' homologous genetic blocks. There are '+str(len(VGT_blast_bed))+' VGT blocks based on BLAST evidence and '+ str(len(otherfam_merged))+' additional blocks for further phylogenetic examination')
+	print(str(datetime.datetime.now())+'\tFound '+str(len(otherfam_merged)+len(pure_ingroup_txt))+' homologous genetic blocks. There are '+str(len(VGT_blast_bed))+' VGT blocks based on BLAST evidence and '+ str(len(otherfam_merged))+' additional blocks need further phylogenetic examination')
 	#extract sequences for each block
 	q_recs=SeqIO.index(query,'fasta')
 	ref_recs=SeqIO.index(sp+'.mt_db.fas', 'fasta')
