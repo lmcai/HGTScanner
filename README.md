@@ -71,7 +71,7 @@ git clean -f -d
 ```
 HGTscanner.py [-h] -m mode -o output_prefix -taxon taxon_file [-q query] [-pt_fix_id id_file]
               [-pt_add_seq fatsa] [-pt_add_id id_file] [-hit integer] [-mt_add_seq fasta] [-wd dir]
-              [-b bed_file] [-e evalue] [-t threads] [-notree]
+              [-b bed_file] [-e evalue] [-t threads] [-notree] [-fungi]
 ```
 
 ### Options:
@@ -92,6 +92,7 @@ options:
   -e evalue           BLAST evalue threshold
   -t threads          BLAST number of threads
   -notree         	  No FastTree phylogeny inference
+  -fungi              Add fungi mtDNA to evaluate HGTs from fungi (to non-fungi)
 ```
 
 ### 1. MTPT detection
