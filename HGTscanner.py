@@ -8,7 +8,7 @@ ascii_art = r"""
 """
 print(ascii_art)
 print('############################################################\n\
-HGTScanner v1.1\n\
+HGTScanner v1.2\n\
 A Python tool for genome-wise detection of horizontal gene transfers\n')
 
 try:
@@ -57,6 +57,7 @@ parser.add_argument('-mt_add_seq', metavar='fasta', help='A fasta file containin
 parser.add_argument('-wd', metavar='dir', help='Path to working dir where *.sum.tsv and *_HGTscanner_supporting_files are located.')
 parser.add_argument('-b', metavar='bed_file', help='A bed file for regions to be masked')
 parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
+parser.add_argument('-t', metavar='threads', help='number of threads for blast')
 parser.add_argument('-notree', action='store_true', help='No FastTree phylogeny inference')
 
 ####################################
@@ -345,7 +346,13 @@ def write_seq_from_bed_txt(bed_txt,output_handle):
 	for l in bed_txt:
 		l=str(l).split()
 		#write header
-		d=output_handle.write(f">{l[7]}|{l[6]}|{l[2]}_{l[3]}\n")
+		if not l[7]=='NA' and l[6]=='NA':
+			d=output_handle.write(f">{l[7]}|{l[6]}|{l[2]}_{l[3]}\n")
+		else:
+			if '|' in l[2]:
+				d=output_handle.write(f">{l[2]}_{l[3]}\n")
+			else:
+				d=output_handle.write(f">{l[7]}|{l[6]}|{l[2]}_{l[3]}\n")
 		tg_pos=l[3].split('+')
 		tg_seq=''
 		#write seq, merge multiple regions if needed
@@ -773,7 +780,9 @@ if args.m =='mtpt':
 	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate MTPT with e-value threshold of '+str(evalue))
 	#make the query sequence as the database otherwise many potential hits from the Viridiplantae get ignored by blastn if the other way around
 	os.system(f"makeblastdb -in {query} -out {sp}.mtpt -dbtype nucl >/dev/null")
-	S='blastn -task dc-megablast -query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
+	if args.t:num_threads=args.t
+	else:num_threads='1'
+	S='blastn -task dc-megablast -num_threads '+num_threads+'-query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
 	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#add taxon information to blast hit
@@ -829,7 +838,7 @@ if args.m =='mtpt':
 		#write target
 		#if too many blast hits, only retain the top 200 hits to save computational time. I also notice the IR region was included twice for a single species. Thus only one best hit will be selected from each species.
 		hit_num = 200
-		if args.hit:hit_num=args.hit
+		if args.hit:hit_num=int(args.hit)
 		if len(ids)>hit_num:
 			_, _, ids = filter_blast_results(ids,fam,hit_num)
 		for i in ids:
@@ -1120,8 +1129,10 @@ elif args.m == 'mt':
 	evalue=1e-20
 	if args.e:evalue=args.e
 	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate HGT with evalue threshold of '+str(evalue))
-	S='blastn -task dc-megablast -num_threads 4 -query '+sp+'.mt_db.fas -db '+sp+'.mt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mt.blast'
-	os.system(S)
+	num_threads='1'
+	if args.t:num_threads=args.t
+	S='blastn -task dc-megablast -num_threads '+num_threads+' -query '+sp+'.mt_db.fas -db '+sp+'.mt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mt.blast'
+	#os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#Add taxonomic information to each hit at species and family level to help identify syntenic blocks
 	x=open(sp+'.mt.blast').readlines()
@@ -1148,38 +1159,57 @@ elif args.m == 'mt':
 	#define potential HGT blocks
 	#classify these hits based on source, here, alignments from the ingroups will be filtered to merge synteny blocks
 	#This is necessary because they create long synteny blocks that may be broken by HGT in the middle
-	x=open(sp+".mt.bed").readlines()
+	hits=open(sp+".mt.bed").readlines()
 	otherfam=[]
 	samefam=[]
-	for l in x:
+	for l in hits:
 		if not l.split()[9] in ingroup:
 			otherfam.append(l)
 		else:
 			samefam.append(l)
 	#merge BLAST hits, but require at least 50 bp overlap
+	allfam_merged=pybedtools.BedTool(''.join(hits), from_string=True).merge(c=11,o='collapse',d=-50)
 	otherfam_merged=pybedtools.BedTool(''.join(otherfam), from_string=True).merge(c=11,o='collapse',d=-50)
+	VGT_blast_block = allfam_merged.subtract(otherfam_merged)
 	samefam_bed=pybedtools.BedTool(''.join(samefam), from_string=True)
+	pure_ingroup_txt = []
+	for interval in VGT_blast_block:
+		# Find overlaps of at least 30 bp
+		samefam_hits = [h for h in samefam_bed.all_hits(interval) if min(interval.end, h.end) - max(interval.start, h.start) >= 30]
+		if len(samefam_hits)>0:
+			samefam_ids = ",".join(h.fields[10] for h in samefam_hits)
+			pure_ingroup_txt.append("\t".join(map(str, [interval.chrom, interval.start, interval.end, samefam_ids, 'VGT'])))
+	VGT_blast_bed = pybedtools.BedTool("\n".join(pure_ingroup_txt), from_string=True)
+	otherfam_merged = pybedtools.BedTool('\n'.join('\t'.join(i.fields + ['TBD']) for i in otherfam_merged),from_string=True)
+	combined_bed = otherfam_merged.cat(VGT_blast_bed, postmerge=False).sort()
 	out=open(sp+'.mt.merged.bed','w')
-	d=out.write(str(otherfam_merged))
+	_ =out.write(str(combined_bed))
 	out.close()
-	print(str(datetime.datetime.now())+'\tFound '+str(len(otherfam_merged))+' homologous genetic blocks for further examination')
+	print(str(datetime.datetime.now())+'\tFound '+str(len(otherfam_merged)+len(pure_ingroup_txt))+' homologous genetic blocks. There are '+str(len(VGT_blast_bed))+' VGT blocks based on BLAST evidence and '+ str(len(otherfam_merged))+' additional blocks for further phylogenetic examination')
 	#extract sequences for each block
 	q_recs=SeqIO.index(query,'fasta')
 	ref_recs=SeqIO.index(sp+'.mt_db.fas', 'fasta')
 	order=1
 	num=1
 	mapout=open(sp+'.alnmap.bed','w')
-	hits=open(sp+'.mt.bed').readlines()
 	seq_loc={}
 	for l in hits:seq_loc[l.split()[-1]]=l
 	if not os.path.isdir(sp+'_HGTscanner_supporting_files'):os.mkdir(sp+'_HGTscanner_supporting_files')
-	for hit in otherfam_merged:
+	VGT_skip=[]
+	for hit in combined_bed:
+		#If this is a BLAST-based VGT
+		if hit.fields[4] =='VGT':
+			d=mapout.write(hit.chrom+'\t'+str(hit.start)+'\t'+str(hit.end)+'\tVGT_BLAST\n')
+			VGT_skip.append(order)
+			order=order+1
+			num=num+1
+			continue
 		#gather overlapping alignment from both other families and close relatives
 		ids=hit.fields[3]
 		ids=ids.split(',')
 		#If too many hits (>300), select the best ones
 		hit_num = 300
-		if args.hit:hit_num=args.hit
+		if args.hit:hit_num=int(args.hit)
 		completeness, num_long_hit, new_ids = filter_blast_results(ids,fam,hit_num)
 		###Evaluate whether blocks needs to be further divided up
 		if completeness < 0.15 and num_long_hit < 6 and len(new_ids)>100 and hit.end-hit.start> 600:
@@ -1331,6 +1361,9 @@ elif args.m == 'mt':
 		print(f"{current_time}\tStart alignment and FastTree phylogeny for #{order-1} loci")
 	for i in range(1,order):
 		print(f"{current_time}\tWorking on loci #{i}...", end='\r')
+		#If VGT_BLAST, do not perform aln or tree inference
+		if i in VGT_skip:
+			continue
 		#alignment
 		fasta_in = f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.fas"
 		temp1 = f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.temp1.fas"  # sequences starting with 'query|'
@@ -1367,6 +1400,9 @@ elif args.m == 'mt':
 	d=out.write('Query\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tDonor_species\tMethod\tBS\tIngroup_seq_coverage\tIngroup_seq_fragment\tDonor_seq_coverage\tDonor_seq_fragment\n')
 	for l in lines:
 		i = l.split()[-1]
+		if i == 'VGT_BLAST':
+			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','BLAST: homology only found in ingroup','NA','NA','NA','NA','NA'])+'\n')
+			continue
 		i = i.split('.')[2]
 		recs=SeqIO.parse(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas","fasta")
 		coverage_metric, fragmentation_metric = coverage_fragmentation_metric(recs)
@@ -1510,6 +1546,9 @@ elif args.m =='mt_eval':
 	d=out.write('Query\tStart\tEnd\tAlignment\tClassification\tRecepient\tDonor_Family\tDonor_genera\tDonor_species\tMethod\tBS\tIngroup_seq_coverage\tIngroup_seq_fragment\tDonor_seq_coverage\tDonor_seq_fragment\n')
 	for l in lines:
 		i = l.split()[-1]
+		if i == 'VGT_BLAST':
+			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','BLAST: homology only found in ingroup','NA','NA','NA','NA','NA'])+'\n')
+			continue
 		i = i.split('.')[2]
 		recs=SeqIO.parse(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas","fasta")
 		coverage_metric, fragmentation_metric = coverage_fragmentation_metric(recs)
