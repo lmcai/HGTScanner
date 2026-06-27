@@ -106,9 +106,9 @@ python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy
 The list of species included in our built-in plastid Viridiplantae database can be found [here](/database/pt_Viridiplantae_taxonomy.tsv). One representative species per genus (totalling 3722) has been selected from the entire NCBI plastid reference genome database. Users can add more species from the **built-in** database by:
 ```
 #Add species to the default database
-python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt] -pt_add_seq [more_seq.fas] -t [threads]
+python HGTscanner.py -m mtpt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt] -pt_add_seq [more_seq.fas] -t [threads]
 #Use a user-selected Genbank accessions as BLAST database **instead** of adding to the default db
-python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_fix_id [genbank_id.txt] -t [threads]
+python HGTscanner.py -m mtpt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] -pt_fix_id [genbank_id.txt] -t [threads]
 ```
 
 *Output:* 
@@ -127,7 +127,7 @@ The following files will be generated:
 
 *Input:* A fasta-formatted assembly of the query organelle genome. To identify mito HGT, use the following command. Note that the optional bed file for masking gene coding and MTPT regions is optional, but highly recommended to avoid excessive BLAST hits in these loci:
 ```
-python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] [optional] -b [bed_file_for_masking] -mt_add_seq [more_ref_seq_fasta]
+python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] [optional] -b [bed_file_for_masking] -mt_add_seq [more_ref_seq_fasta]
 ```
 
 *Output:* 
@@ -161,27 +161,27 @@ Once the sequences are correctly prepared, the users can add them to the databas
 For MTPT:
 ```
 #Add custom sequences
-python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file]] -pt_add_seq [fasta_file] 
+python HGTscanner.py -m mtpt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file]] -pt_add_seq [fasta_file] 
 #Add custom sequences and add more sequences from the built-in database
-python HGTscanner.py -m mtpt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt] -pt_add_seq [fasta_file]
+python HGTscanner.py -m mtpt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] -pt_add_id [more_genbank_id.txt] -pt_add_seq [fasta_file]
 ```
 For mt HGT:
 ```
-python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -mt_add_seq [mt.fas] [optional] -b [bed_file_for_masking] 
+python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] -mt_add_seq [mt.fas] [optional] -b [bed_file_for_masking] 
 ```
 
 ### 4. Detecting HGT from fungi (to plants)
 A fungal mtDNA database is also included in HGTScanner, to identify any fungal-derived HGT along with plant-derived HGT, use the `-fungi` flag.
 ```
-python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -fungi
+python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] -fungi
 ```
 
 ### 5. Use IQ-TREE/RAxML instead of FastTree
 Users can choose IQ-TREE/RAxML instead of FastTree for phylogenetic inference to improve accuracy. This also allows for the distribution of phylogenetic inference to high performance computer clusters. 
 
-First, run HGT to get alignments of homologous regions but do not perform tree inference:
+First, run HGT to get alignments of homologous regions but do not perform tree inference with the `-notree` flag:
 ```
-python HGTscanner.py -m mt -q [query.fas]  -o [output_prefix] -taxon [taxonomy_file] -notree
+python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] -notree
 ```
 
 Then infer phylogeny for each loci. 
