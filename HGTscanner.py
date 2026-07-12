@@ -794,7 +794,7 @@ if args.m =='mtpt':
 	print(str(datetime.datetime.now())+'\tPerforming BLAST to identify candidate MTPT with e-value threshold of '+str(evalue)+' and '+num_threads+' threads')
 	#make the query sequence as the database otherwise many potential hits from the Viridiplantae get ignored by blastn if the other way around
 	os.system(f"makeblastdb -in {query} -out {sp}.mtpt -dbtype nucl >/dev/null")
-	S='blastn -task dc-megablast -num_threads '+num_threads+'-query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
+	S='blastn -task dc-megablast -num_threads '+num_threads+' -query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
 	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#add taxon information to blast hit
