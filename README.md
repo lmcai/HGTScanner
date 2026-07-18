@@ -2,7 +2,7 @@
 
 **HGTScanner** is a python package to identify the genomic location and evolutionary history of horizontal gene transfers (HGT) in organellar genomes
 
-**License**: MIT License
+**License**: GNU License
 
 **Citation**: Liming Cai and Rachel Cohen. HGTScanner: Detecting horizontal gene transfer at fine scale using whole organelle genomes.
 
