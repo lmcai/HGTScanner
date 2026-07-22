@@ -250,7 +250,7 @@ elif args.m == 'mt':
 					S='cat '+script_path+'/database/Fungi_mt_apr2026.genome.fas >>'+sp+'.mt_db.fas'
 					os.system(S)
 			else:
-				sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+pt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
+				sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+mt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
 		else:
 			if args.fungi:
 				#add fungal mtDNA
