@@ -250,7 +250,7 @@ elif args.m == 'mt':
 					S='cat '+script_path+'/database/Fungi_mt_apr2026.genome.fas >>'+sp+'.mt_db.fas'
 					os.system(S)
 			else:
-				sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+pt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
+				sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+mt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
 		else:
 			if args.fungi:
 				#add fungal mtDNA
@@ -572,8 +572,12 @@ def merge_short_intervals(primary_bed, evidence_ids, max_len=80):
 	data_lines = [l.split() for l in data_lines]
 	evidence_df = pd.DataFrame(data_lines)
 	evidence_df.rename(columns={0:'chrom', 1:'start', 2: 'end'}, inplace=True)
-	evidence_df["start"] = pd.to_numeric(df["start"], errors="coerce")
-	evidence_df["end"] = pd.to_numeric(df["end"], errors="coerce")
+	evidence_df["start"] = pd.to_numeric(
+		evidence_df["start"], errors="coerce"
+	)
+	evidence_df["end"] = pd.to_numeric(
+		evidence_df["end"], errors="coerce"
+	)
 	to_drop = set()
 	short_idxs = find_short_candidates(df, max_len)
 	for j in short_idxs:
@@ -1224,6 +1228,7 @@ elif args.m == 'mt':
 		if args.hit:hit_num=int(args.hit)
 		completeness, num_long_hit, new_ids = filter_blast_results(ids,fam,hit_num)
 		###Evaluate whether blocks needs to be further divided up
+		# NOTE: Please confirm this HMM trigger matches the manuscript.
 		if completeness < 0.15 and num_long_hit < 6 and len(new_ids)>100 and hit.end-hit.start> 600:
 			#This block needs to be split up
 			to_spilt=1
@@ -1562,6 +1567,7 @@ elif args.m =='mt_eval':
 			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','BLAST: homology only found in ingroup','NA','NA','NA','NA','NA'])+'\n')
 			continue
 		i = i.split('.')[2]
+		# NOTE: Please confirm this and the tree paths below should use args.wd.
 		recs=SeqIO.parse(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas","fasta")
 		coverage_metric, fragmentation_metric = coverage_fragmentation_metric(recs)
 		allsp=[j for j in coverage_metric.keys()]
