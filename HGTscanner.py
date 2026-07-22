@@ -572,8 +572,12 @@ def merge_short_intervals(primary_bed, evidence_ids, max_len=80):
 	data_lines = [l.split() for l in data_lines]
 	evidence_df = pd.DataFrame(data_lines)
 	evidence_df.rename(columns={0:'chrom', 1:'start', 2: 'end'}, inplace=True)
-	evidence_df["start"] = pd.to_numeric(df["start"], errors="coerce")
-	evidence_df["end"] = pd.to_numeric(df["end"], errors="coerce")
+	evidence_df["start"] = pd.to_numeric(
+		evidence_df["start"], errors="coerce"
+	)
+	evidence_df["end"] = pd.to_numeric(
+		evidence_df["end"], errors="coerce"
+	)
 	to_drop = set()
 	short_idxs = find_short_candidates(df, max_len)
 	for j in short_idxs:
