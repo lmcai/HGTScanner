@@ -1228,6 +1228,7 @@ elif args.m == 'mt':
 		if args.hit:hit_num=int(args.hit)
 		completeness, num_long_hit, new_ids = filter_blast_results(ids,fam,hit_num)
 		###Evaluate whether blocks needs to be further divided up
+		# NOTE: Please confirm this HMM trigger matches the manuscript.
 		if completeness < 0.15 and num_long_hit < 6 and len(new_ids)>100 and hit.end-hit.start> 600:
 			#This block needs to be split up
 			to_spilt=1
