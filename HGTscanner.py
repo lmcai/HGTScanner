@@ -1567,6 +1567,7 @@ elif args.m =='mt_eval':
 			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','BLAST: homology only found in ingroup','NA','NA','NA','NA','NA'])+'\n')
 			continue
 		i = i.split('.')[2]
+		# NOTE: Please confirm this and the tree paths below should use args.wd.
 		recs=SeqIO.parse(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas","fasta")
 		coverage_metric, fragmentation_metric = coverage_fragmentation_metric(recs)
 		allsp=[j for j in coverage_metric.keys()]
