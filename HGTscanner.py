@@ -1228,7 +1228,6 @@ elif args.m == 'mt':
 		if args.hit:hit_num=int(args.hit)
 		completeness, num_long_hit, new_ids = filter_blast_results(ids,fam,hit_num)
 		###Evaluate whether blocks needs to be further divided up
-		# NOTE: Please confirm this HMM trigger matches the manuscript.
 		if completeness < 0.15 and num_long_hit < 6 and len(new_ids)>100 and hit.end-hit.start> 600:
 			#This block needs to be split up
 			to_spilt=1
@@ -1567,8 +1566,7 @@ elif args.m =='mt_eval':
 			d=out.write(l.strip()+'\t'+'\t'.join(['VGT','NA','NA','NA','NA','BLAST: homology only found in ingroup','NA','NA','NA','NA','NA'])+'\n')
 			continue
 		i = i.split('.')[2]
-		# NOTE: Please confirm this and the tree paths below should use args.wd.
-		recs=SeqIO.parse(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas","fasta")
+		recs=SeqIO.parse(f"{args.wd}/{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas","fasta")
 		coverage_metric, fragmentation_metric = coverage_fragmentation_metric(recs)
 		allsp=[j for j in coverage_metric.keys()]
 		target_tip=[j for j in allsp if j.startswith('query')]
@@ -1612,7 +1610,7 @@ elif args.m =='mt_eval':
 			if len(ingroup_sp)==0:
 				#check tree for donor
 				try:
-					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
+					t=Tree(f"{args.wd}/{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
 					t=correct_nd_support(t)
 					#reroot
 					ncbi_tree=Tree(script_path+'/database/ncbi_common_taxonomy.phy',format=1)
@@ -1653,7 +1651,7 @@ elif args.m =='mt_eval':
 			else:
 				try:
 					#examine if this can be a VGT without rerooting the tree
-					t=Tree(f"{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
+					t=Tree(f"{args.wd}/{sp}_HGTscanner_supporting_files/{sp}.hgt.{i}.aln.fas.treefile",format=1)
 					t=correct_nd_support(t)
 					#VGT based on tip order: the query if nested within an ingroup cluster
 					if VGTFromTipOrder(t,target_tip,fam):
