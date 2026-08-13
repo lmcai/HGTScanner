@@ -71,7 +71,7 @@ git clean -f -d
 ```
 HGTscanner.py [-h] -m mode -o output_prefix -taxon taxon_file [-q query] [-pt_fix_id id_file]
               [-pt_add_seq fatsa] [-pt_add_id id_file] [-hit integer] [-mt_add_seq fasta] [-wd dir]
-              [-b bed_file] [-e evalue] [-t threads] [-notree] [-fungi]
+              [-b bed_file] [-e evalue] [-t threads] [-notree] [-fungi] [-bs]
 ```
 
 ### Options:
@@ -93,6 +93,7 @@ options:
   -t threads          BLAST number of threads
   -notree         	  No FastTree phylogeny inference
   -fungi              Add fungi mtDNA to evaluate HGTs from fungi (to non-fungi)
+  -bs         	      Bootstrap threshold to call high confidence HGT
 ```
 
 ### 1. MTPT detection
@@ -127,7 +128,7 @@ The following files will be generated:
 
 *Input:* A fasta-formatted assembly of the query organelle genome. To identify mito HGT, use the following command. Note that the optional bed file can be used to mask gene coding and MTPT regions is they are not the primary interest of the study:
 ```
-python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] [optional] -mt_add_seq [more_ref_seq_fasta] -b [bed_file_for_masking] 
+python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] [optional] -mt_add_seq [more_ref_seq_fasta] -b [bed_file_for_masking] -bs [bootstrap] -t [threads]
 ```
 
 *Output:* 
@@ -193,7 +194,7 @@ Then use the following command to assess HGT:
 #for MTPT
 python HGTscanner.py -m mtpt_eval -o [output_prefix] -taxon [taxonomy_file] -wd [working_dir]
 #for HGT
-python HGTscanner.py -m mt_eval -o [output_prefix] -taxon [taxonomy_file] -wd [working_dir]
+python HGTscanner.py -m mt_eval -o [output_prefix] -taxon [taxonomy_file] -wd [working_dir] -bs [boostrap_threshold]
 ```
 Note that the `-wd` argument should be the name of the directory containing both *.mtpt.sum.tsv and *_HGTscanner_supporting_files:
 ```
