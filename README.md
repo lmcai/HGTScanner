@@ -128,7 +128,7 @@ The following files will be generated:
 
 *Input:* A fasta-formatted assembly of the query organelle genome. To identify mito HGT, use the following command. Note that the optional bed file can be used to mask gene coding and MTPT regions is they are not the primary interest of the study:
 ```
-python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] [optional] -mt_add_seq [more_ref_seq_fasta] -b [bed_file_for_masking] -bs [bootstrap]
+python HGTscanner.py -m mt -q [query.fas] -o [output_prefix] -taxon [taxonomy_file] [optional] -mt_add_seq [more_ref_seq_fasta] -b [bed_file_for_masking] -bs [bootstrap] -t [threads]
 ```
 
 *Output:* 
