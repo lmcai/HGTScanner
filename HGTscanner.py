@@ -8,7 +8,7 @@ ascii_art = r"""
 """
 print(ascii_art)
 print('############################################################\n\
-HGTScanner v1.2\n\
+HGTScanner v1.3\n\
 A Python tool for genome-wise detection of horizontal gene transfers\n')
 
 try:
@@ -60,6 +60,7 @@ parser.add_argument('-e', metavar='evalue', help='BLAST evalue threshold')
 parser.add_argument('-t', metavar='threads', help='number of threads for blast')
 parser.add_argument('-notree', action='store_true', help='No FastTree phylogeny inference')
 parser.add_argument('-fungi', action='store_true', help='Add fungal mtDNA to evaluate HGT')
+parser.add_argument('-bs', metavar='support', help='Branch support threshold for high confidence HGT')
 
 ####################################
 #I. pass argument values, check required arguments and input file format
@@ -474,6 +475,7 @@ def fit_hmm(support):
         n_iter=200,
         tol=1e-4,
         verbose=False
+        random_state=1106 #seed number for repeatability
     )
     model.fit(X)
     # Use lambda_ for PoissonHMM instead of means_
@@ -1538,7 +1540,13 @@ elif args.m == 'mt':
 									if donor_fam_end==len(alltips):donor_fam_tips = alltips[donor_fam_start:]
 									else:donor_fam_tips = alltips[donor_fam_start:donor_fam_end+1]
 									fam_support = max_clade_support(target_tip,donor_fam_tips,t)
-									d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',bs,str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
+									if args.bs:
+										if float(fam_support) >= float(args.bs):
+											d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',str(fam_support),str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
+										else:
+											d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',str(fam_support),str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
+									else:
+										d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',str(fam_support),str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
 								else:
 									#Putative HGT: one family that's not close relative, but phylogeny is not completely well nested within
 									d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny',bs,str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
@@ -1684,7 +1692,13 @@ elif args.m =='mt_eval':
 									if donor_fam_end==len(alltips):donor_fam_tips = alltips[donor_fam_start:]
 									else:donor_fam_tips = alltips[donor_fam_start:donor_fam_end+1]
 									fam_support = max_clade_support(target_tip,donor_fam_tips,t)
-									d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',bs,str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
+									if args.bs:
+										if float(fam_support)>= float(args.bs):
+											d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',str(fam_support),str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
+										else:
+											d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',str(fam_support),str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
+									else:
+										d=out.write(l.strip()+'\t'+'\t'.join(['High confidence HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny: nested in donor family',str(fam_support),str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
 								else:
 									#Putative HGT: one family that's not close relative, but phylogeny is not completely well nested within
 									d=out.write(l.strip()+'\t'+'\t'.join(['Putative HGT',';'.join(receiver),';'.join(donor_fam),';'.join(donor_gen),';'.join(donor_tips),'Phylogeny',bs,str(np.nanmedian(ingroup_coverage)),str(np.nanmedian(ingroup_fragmentation)),str(np.nanmedian(donor_coverage)),str(np.nanmedian(donor_fragmentation))])+'\n')
