@@ -8,7 +8,7 @@ ascii_art = r"""
 """
 print(ascii_art)
 print('############################################################\n\
-HGTScanner v1.3\n\
+HGTScanner v1.2.2\n\
 A Python tool for genome-wise detection of horizontal gene transfers\n')
 
 try:
@@ -474,7 +474,7 @@ def fit_hmm(support):
         n_components=2,
         n_iter=200,
         tol=1e-4,
-        verbose=False
+        verbose=False,
         random_state=1106 #seed number for repeatability
     )
     model.fit(X)
