@@ -100,6 +100,8 @@ if args.m =='mtpt':
 			sys.exit(str(datetime.datetime.now())+'\tQuery family not set. Exit...')
 		print(f"{datetime.datetime.now()}\tTaxonomy file looks OK")
 		print(f"{datetime.datetime.now()}\tThe query belongs to family: {fam}; The following are close relatives: {', '.join(ingroup)}")
+		#create a new empty db file
+		open(sp + ".pt_db.fas", "w").close()
 		if args.pt_fix_id:
 			#Use custom list of pt db
 			id_list=open(args.pt_fix_id).readlines()
