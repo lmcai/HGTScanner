@@ -4,7 +4,7 @@
 
 **License**: GNU License
 
-**Citation**: Liming Cai and Rachel Cohen. HGTScanner: Detecting horizontal gene transfer at fine scale using whole organelle genomes. In review.
+**Citation**: Liming Cai and Rachel Cohen. HGTScanner: Detecting horizontal gene transfer at fine scale using whole organelle genomes. Methods in Ecology and Evolution. doi 10.1111/2041-210x.70419
 
 **Contact**: Reach out to Liming Cai (cail@ufl.edu) for questions or open an [Issue](https://github.com/lmcai/HGTScanner/issues).
 
