@@ -805,6 +805,10 @@ if args.m =='mtpt':
 	S='blastn -task dc-megablast -num_threads '+num_threads+' -query '+sp+'.pt_db.fas -db '+sp+'.mtpt -outfmt 6 -evalue '+str(evalue)+' >'+sp+'.mtpt.blast'
 	os.system(S)
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
+	x=open(sp+'.mtpt.blast').readlines()
+	if len(x) == 0:
+		#empty blast results
+		sys.exit(str(datetime.datetime.now())+'\tEmpty BLAST output: '+sp+'.mtpt.blast No MTPT detected or other BLAST issue. Exiting...')
 	#add taxon information to blast hit
 	out=open(sp+'.mtpt.blast.taxon','w')
 	id2sp={}
@@ -813,7 +817,6 @@ if args.m =='mtpt':
 	for l in taxon_ref[1:]:
 		id2sp[l.split()[0]]=l.split('\t')[7].strip()
 		id2fam[l.split()[0]]=l.split('\t')[5]
-	x=open(sp+'.mtpt.blast').readlines()
 	for l in x:
 		try:
 			ncbi_id=l.split()[0]
@@ -1156,6 +1159,9 @@ elif args.m == 'mt':
 	print(str(datetime.datetime.now())+'\tBLAST completed for '+sp)
 	#Add taxonomic information to each hit at species and family level to help identify syntenic blocks
 	x=open(sp+'.mt.blast').readlines()
+	if len(x) == 0:
+		#empty blast results
+		sys.exit(str(datetime.datetime.now())+'\tEmpty BLAST output: '+sp+'.mt.blast Exiting...')
 	out=open(sp+'.mt.blast.taxon','w')
 	id2sp={}
 	id2fam={}
