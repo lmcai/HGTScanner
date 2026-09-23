@@ -8,7 +8,7 @@ ascii_art = r"""
 """
 print(ascii_art)
 print('############################################################\n\
-HGTScanner v1.2.2\n\
+HGTScanner v1.2.3\n\
 A Python tool for genome-wise detection of horizontal gene transfers\n')
 
 try:
