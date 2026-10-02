@@ -57,7 +57,7 @@ conda activate hgtscanner
 
 3. Download Viridiplantae database
 
-4. To update your local version for any future releases, `cd` into the `PhyloHerb` directory then type
+4. To update your local version for any future releases, `cd` into the `HGTScanner` directory then type
 ```
 git fetch --prune origin
 git reset --hard origin
