@@ -57,6 +57,8 @@ conda activate hgtscanner
 
 3. Download Viridiplantae database
 
+Zenodo has been incredibly slow for uploading and downloading recently. We hope to incorporate command-line based database downloading option from alternative platform by the end of October, 2026. For now, please download the database from https://zenodo.org/records/22033400
+
 4. To update your local version for any future releases, `cd` into the `HGTScanner` directory then type
 ```
 git fetch --prune origin
