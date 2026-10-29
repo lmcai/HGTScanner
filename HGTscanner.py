@@ -70,8 +70,27 @@ args = parser.parse_args()
 script_path = os.path.abspath(sys.argv[0])
 script_path = os.path.dirname(script_path)
 
+def db_fasta(prefix, kind):
+	"""Return the path of the newest release of a database fasta in the database folder,
+	e.g. db_fasta('Viridiplantae_mt','genome') -> database/Viridiplantae_mt_aug2025.genome.fas
+	Release dates in file names are handled by hgtscanner_config.py, so no hard-coded names are needed."""
+	import re
+	db_dir = script_path+'/database'
+	months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+	pat = re.compile('^'+re.escape(prefix)+r'_([a-z]{3})(\d{4})\.'+re.escape(kind)+r'\.(fas|fasta|fa)$', re.I)
+	hits = []
+	if os.path.isdir(db_dir):
+		for f in os.listdir(db_dir):
+			m = pat.match(f)
+			if m:
+				mon = months.index(m.group(1).lower()) if m.group(1).lower() in months else 0
+				hits.append(((int(m.group(2)), mon), f))
+	if not hits:
+		sys.exit('Database file '+prefix+'_<date>.'+kind+'.fas not found in '+db_dir+'. Please run: python '+script_path+'/hgtscanner_config.py')
+	return db_dir+'/'+max(hits)[1]
+
 def id2seq(ids,output_file):
-	recs=SeqIO.parse(script_path+'/database/Viridiplantae_pt_aug2025.complete.fas','fasta')
+	recs=SeqIO.parse(db_fasta('Viridiplantae_pt','complete'),'fasta')
 	out=open(output_file,'a')
 	for rec in recs:
 		id=rec.id
@@ -138,12 +157,12 @@ if args.m =='mtpt':
 				id_list=[i for i in id_list if not i in overlap_id]
 				id2seq(id_list,sp+'.pt_db.fas')
 			if add_seq==1:
-				S='cat '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas >>'+sp+'.pt_db.fas'
+				S='cat '+db_fasta('Viridiplantae_pt','representative')+' >>'+sp+'.pt_db.fas'
 				os.system(S)
 			else:
 				#no additional seq added
 				print(str(datetime.datetime.now())+'\tNo custom plastid reference provided. Using default...')
-				S='cp '+script_path+'/database/Viridiplantae_pt_aug2025.representative.fas '+sp+'.pt_db.fas'
+				S='cp '+db_fasta('Viridiplantae_pt','representative')+' '+sp+'.pt_db.fas'
 				os.system(S)				
 	except TypeError:
 		print('############################################################\n\
@@ -245,12 +264,12 @@ elif args.m == 'mt':
 			headers=open(mt_reference).readlines()
 			headers=[i[1:] for i in headers if i.startswith('>')]
 			if all(i.count("|") == 2 for i in headers):
-				S='cat '+mt_reference+' '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas >'+sp+'.mt_db.fas'
+				S='cat '+mt_reference+' '+db_fasta('Viridiplantae_mt','genome')+' >'+sp+'.mt_db.fas'
 				os.system(S)
 				if args.fungi:
 					#add fungal mtDNA
 					print(str(datetime.datetime.now())+'\t-fungi invoked. Adding fungal mitochondrial reference to the NCBI Viridiplantae mitochondrial database')
-					S='cat '+script_path+'/database/Fungi_mt_apr2026.genome.fas >>'+sp+'.mt_db.fas'
+					S='cat '+db_fasta('Fungi_mt','genome')+' >>'+sp+'.mt_db.fas'
 					os.system(S)
 			else:
 				sys.exit(str(datetime.datetime.now())+'\tMalformatted custom fasta file: '+mt_reference+'. All headers should be >FAMILY|SPECIES|ID. Exit...')
@@ -258,10 +277,10 @@ elif args.m == 'mt':
 			if args.fungi:
 				#add fungal mtDNA
 				print(str(datetime.datetime.now())+'\t-fungi invoked. Adding fungal mitochondrial reference')
-				S='cat '+script_path+'/database/Fungi_mt_apr2026.genome.fas '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas >'+sp+'.mt_db.fas'
+				S='cat '+db_fasta('Fungi_mt','genome')+' '+db_fasta('Viridiplantae_mt','genome')+' >'+sp+'.mt_db.fas'
 				os.system(S)
 			else:
-				S='cp '+script_path+'/database/Viridiplantae_mt_aug2025.genome.fas '+sp+'.mt_db.fas'
+				S='cp '+db_fasta('Viridiplantae_mt','genome')+' '+sp+'.mt_db.fas'
 				os.system(S)
 				print(str(datetime.datetime.now())+'\tNo custom mitochondrial reference provided. Will use the built-in Viridiplantae mitochondrial database')
 	except TypeError:
