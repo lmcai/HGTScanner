@@ -2,13 +2,6 @@
 """
 hgtscanner_config.py - set up and update the sequence databases for HGTScanner.
 
-The large FASTA databases are hosted on Zenodo (gzipped). This script downloads
-them, verifies the MD5 checksums, and unpacks them into <HGTScanner>/database,
-where HGTscanner.py finds them automatically.
-
-Place this script in the top-level HGTScanner folder (next to HGTscanner.py).
-Only the Python standard library is needed (Python >= 3.6).
-
 Usage:
     python hgtscanner_config.py            # first-time setup: download missing databases
     python hgtscanner_config.py --update   # replace the databases with the newest release
